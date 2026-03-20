@@ -1,0 +1,106 @@
+package com.electrahub.ocpp.websocket;
+
+import com.electrahub.ocpp.domain.enums.OcppMessageType;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class OcppJsonRpcMessage {
+
+    private int messageTypeId;
+    private String messageId;
+    private String action;
+    private JsonNode payload;
+    private String errorCode;
+    private String errorDescription;
+    private JsonNode errorDetails;
+
+    public static OcppJsonRpcMessage createCall(String messageId, String action, JsonNode payload) {
+        OcppJsonRpcMessage msg = new OcppJsonRpcMessage();
+        msg.setMessageTypeId(OcppMessageType.CALL.getValue());
+        msg.setMessageId(messageId);
+        msg.setAction(action);
+        msg.setPayload(payload);
+        return msg;
+    }
+
+    public static OcppJsonRpcMessage createCallResult(String messageId, JsonNode payload) {
+        OcppJsonRpcMessage msg = new OcppJsonRpcMessage();
+        msg.setMessageTypeId(OcppMessageType.CALL_RESULT.getValue());
+        msg.setMessageId(messageId);
+        msg.setPayload(payload);
+        return msg;
+    }
+
+    public static OcppJsonRpcMessage createCallError(String messageId, String errorCode, String errorDescription, JsonNode errorDetails) {
+        OcppJsonRpcMessage msg = new OcppJsonRpcMessage();
+        msg.setMessageTypeId(OcppMessageType.CALL_ERROR.getValue());
+        msg.setMessageId(messageId);
+        msg.setErrorCode(errorCode);
+        msg.setErrorDescription(errorDescription);
+        msg.setErrorDetails(errorDetails);
+        return msg;
+    }
+
+    public String toJson() {
+        ObjectMapper mapper = new ObjectMapper();
+        ArrayNode arrayNode = mapper.createArrayNode();
+        arrayNode.add(messageTypeId);
+        arrayNode.add(messageId);
+
+        if (messageTypeId == OcppMessageType.CALL.getValue()) {
+            arrayNode.add(action);
+            arrayNode.add(payload != null ? payload : mapper.createObjectNode());
+        } else if (messageTypeId == OcppMessageType.CALL_RESULT.getValue()) {
+            arrayNode.add(payload != null ? payload : mapper.createObjectNode());
+        } else if (messageTypeId == OcppMessageType.CALL_ERROR.getValue()) {
+            arrayNode.add(errorCode);
+            arrayNode.add(errorDescription);
+            arrayNode.add(errorDetails != null ? errorDetails : mapper.createObjectNode());
+        }
+
+        return arrayNode.toString();
+    }
+
+    public static OcppJsonRpcMessage parse(String json) {
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            JsonNode node = mapper.readTree(json);
+            if (!node.isArray()) {
+                throw new IllegalArgumentException("OCPP message must be an array");
+            }
+
+            int messageTypeId = node.get(0).asInt();
+            OcppMessageType type = OcppMessageType.fromValue(messageTypeId);
+
+            OcppJsonRpcMessage msg = new OcppJsonRpcMessage();
+            msg.setMessageTypeId(messageTypeId);
+            msg.setMessageId(node.get(1).asText());
+
+            if (type == OcppMessageType.CALL) {
+                msg.setAction(node.get(2).asText());
+                msg.setPayload(node.get(3));
+            } else if (type == OcppMessageType.CALL_RESULT) {
+                msg.setPayload(node.get(2));
+            } else if (type == OcppMessageType.CALL_ERROR) {
+                msg.setErrorCode(node.get(2).asText());
+                msg.setErrorDescription(node.get(3).asText());
+                if (node.size() > 4) {
+                    msg.setErrorDetails(node.get(4));
+                }
+            }
+
+            return msg;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse OCPP message", e);
+        }
+    }
+
+}

@@ -1,0 +1,46 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: ocpp-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ocpp_db
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+ocpp:
+  heartbeat:
+    timeout-seconds: 120
+    check-interval-seconds: 30
+  message:
+    response-timeout-seconds: 30
+  websocket:
+    max-text-message-size: 65536
+    max-binary-message-size: 65536
+
+integration:
+  station-service:
+    base-url: ${STATION_SERVICE_URL:http://localhost:8081}
+  session-service:
+    base-url: ${SESSION_SERVICE_URL:http://localhost:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
