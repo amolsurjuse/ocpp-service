@@ -39,11 +39,12 @@ public class TransactionEventHandler implements OcppMessageHandler {
 
             switch (eventType) {
                 case "Started" -> {
-                    sessionServiceClient.startSession(
-                        objectMapper.createObjectNode()
+                    ObjectNode startPayload = objectMapper.createObjectNode()
                             .put("chargePointId", chargePointId)
-                            .set("transactionInfo", transactionInfo)
-                            .put("timestamp", timestamp)
+                            .put("timestamp", timestamp);
+                    startPayload.set("transactionInfo", transactionInfo);
+                    sessionServiceClient.startSession(
+                            startPayload
                     );
                 }
                 case "Updated" -> {
