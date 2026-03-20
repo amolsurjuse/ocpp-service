@@ -1,0 +1,54 @@
+name: license-compliance
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  license-compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure repository license file exists
+        run: |
+          if [ ! -f LICENSE ] && [ ! -f LICENSE.md ]; then
+            echo "LICENSE or LICENSE.md is required."
+            exit 1
+          fi
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Generate third-party license report
+        run: |
+          mvn -B -ntp org.codehaus.mojo:license-maven-plugin:2.4.0:aggregate-add-third-party \
+            -Dlicense.outputDirectory=target/license \
+            -Dlicense.thirdPartyFilename=THIRD-PARTY.txt \
+            -Dlicense.failOnMissing=false
+
+      - name: Check disallowed licenses
+        run: |
+          FILE="target/license/THIRD-PARTY.txt"
+          test -f "$FILE"
+          if grep -Eiq "(AGPL|GPL-3\\.0|SSPL|BUSL|Commons Clause)" "$FILE"; then
+            echo "Disallowed license detected in dependency report."
+            exit 1
+          fi
+
+      - name: Upload third-party license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: third-party-license-report
+          path: target/license/THIRD-PARTY.txt
+

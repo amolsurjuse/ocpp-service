@@ -1,0 +1,8 @@
+# Global ownership
+* @amolsurjuse
+
+# Sensitive paths
+/src/ @amolsurjuse
+/ci/ @amolsurjuse
+/.github/ @amolsurjuse
+
