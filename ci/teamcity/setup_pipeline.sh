@@ -17,7 +17,7 @@ export DOCKER_IMAGE="${DOCKER_IMAGE:-${OCPP_SERVICE_DOCKER_IMAGE:-amolsurjuse/oc
 export DOCKERFILE_PATH="${DOCKERFILE_PATH:-Dockerfile}"
 export POM_PATH="${POM_PATH:-pom.xml}"
 export MAVEN_GOALS="${MAVEN_GOALS:-clean package}"
-export MAVEN_RUNNER_ARGS="${MAVEN_RUNNER_ARGS:-}"
+export MAVEN_RUNNER_ARGS="${MAVEN_RUNNER_ARGS:--Dspring.profiles.active=test -Docpp.websocket.enabled=false -Dspring.main.lazy-initialization=true}"
 export K8S_BRANCH="${K8S_BRANCH:-develop}"
 export DEPLOY_VERSION_FILE="${DEPLOY_VERSION_FILE:-charts/config/services/ocpp-service/us/version/dev-version.yaml}"
 export DOCKER_USERNAME="${DOCKER_USERNAME:-amolsurjuse}"

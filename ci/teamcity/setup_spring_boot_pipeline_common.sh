@@ -235,6 +235,36 @@ create_steps_if_empty() {
   echo "Created build steps"
 }
 
+ensure_maven_runner_args() {
+  if [[ -z "${MAVEN_RUNNER_ARGS}" ]]; then
+    return
+  fi
+
+  local maven_step_json step_id payload
+  maven_step_json="$(
+    api GET "/app/rest/buildTypes/id:${TEAMCITY_BUILD_TYPE_ID}?fields=steps(step(id,name,type,properties(property(name,value))))" \
+      | jq -c '.steps.step[]? | select(.type=="Maven2")' \
+      | head -n 1
+  )"
+
+  if [[ -z "${maven_step_json}" ]]; then
+    echo "No Maven step found to apply runner arguments"
+    return
+  fi
+
+  step_id="$(printf '%s' "${maven_step_json}" | jq -r '.id')"
+  payload="$(
+    printf '%s' "${maven_step_json}" \
+      | jq -c --arg args "${MAVEN_RUNNER_ARGS}" '
+          .properties.property =
+            ((.properties.property // [] | map(select(.name != "runnerArgs")))
+            + [{name:"runnerArgs", value:$args}])'
+  )"
+
+  api PUT "/app/rest/buildTypes/id:${TEAMCITY_BUILD_TYPE_ID}/steps/${step_id}" "${payload}" >/dev/null
+  echo "Ensured Maven runner arguments on ${step_id}"
+}
+
 ensure_trigger() {
   local trigger_count
   trigger_count=$(api GET "/app/rest/buildTypes/id:${TEAMCITY_BUILD_TYPE_ID}" | jq '.triggers.count')
@@ -254,6 +284,7 @@ attach_vcs_root_if_missing
 set_parameters
 ensure_agent_requirement
 create_steps_if_empty
+ensure_maven_runner_args
 ensure_trigger
 
 echo "Pipeline is ready: ${TEAMCITY_URL}/buildConfiguration/${TEAMCITY_BUILD_TYPE_ID}?mode=builds"
