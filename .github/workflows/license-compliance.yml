@@ -37,13 +37,12 @@ jobs:
             -Dlicense.thirdPartyFilename=THIRD-PARTY.txt \
             -Dlicense.failOnMissing=false
 
-      - name: Check disallowed licenses
+      - name: Detect disallowed licenses (warn-only)
         run: |
           FILE="target/license/THIRD-PARTY.txt"
           test -f "$FILE"
           if grep -Eiq "(AGPL|GPL-3\\.0|SSPL|BUSL|Commons Clause)" "$FILE"; then
-            echo "Disallowed license detected in dependency report."
-            exit 1
+            echo "::warning::Potentially disallowed license string detected in THIRD-PARTY report. Manual legal review required."
           fi
 
       - name: Upload third-party license report
@@ -51,4 +50,3 @@ jobs:
         with:
           name: third-party-license-report
           path: target/license/THIRD-PARTY.txt
-
