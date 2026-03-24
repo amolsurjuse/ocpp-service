@@ -1,5 +1,7 @@
 package com.electrahub.ocpp.web;
 
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import com.electrahub.ocpp.service.RemoteCommandService;
 import com.electrahub.ocpp.web.dto.*;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,10 +15,21 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/ocpp/commands")
 @Slf4j
 public class RemoteCommandController {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RemoteCommandController.class);
+
 
     private final RemoteCommandService remoteCommandService;
 
+    /**
+     * Executes remote command controller for `RemoteCommandController`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.web`.
+     * @param remoteCommandService input consumed by RemoteCommandController.
+     */
     public RemoteCommandController(RemoteCommandService remoteCommandService) {
+        LOGGER.info("CODEx_ENTRY_LOG: Entering RemoteCommandController#RemoteCommandController");
+        LOGGER.debug("CODEx_ENTRY_LOG: Entering RemoteCommandController#RemoteCommandController with debug context");
         this.remoteCommandService = remoteCommandService;
     }
 

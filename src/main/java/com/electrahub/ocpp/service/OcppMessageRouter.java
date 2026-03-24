@@ -1,5 +1,7 @@
 package com.electrahub.ocpp.service;
 
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import com.electrahub.ocpp.domain.enums.OcppMessageType;
 import com.electrahub.ocpp.websocket.OcppJsonRpcMessage;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +15,8 @@ import java.util.concurrent.CompletableFuture;
 @Service
 @Slf4j
 public class OcppMessageRouter {
+    private static final Logger LOGGER = LoggerFactory.getLogger(OcppMessageRouter.class);
+
 
     private final Map<String, OcppMessageHandler> handlers = new HashMap<>();
     private final RemoteCommandService remoteCommandService;
@@ -27,7 +31,18 @@ public class OcppMessageRouter {
         }
     }
 
+    /**
+     * Executes route message for `OcppMessageRouter`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.service`.
+     * @param chargePointId input consumed by routeMessage.
+     * @param message input consumed by routeMessage.
+     * @return result produced by routeMessage.
+     */
     public OcppJsonRpcMessage routeMessage(String chargePointId, OcppJsonRpcMessage message) {
+        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppMessageRouter#routeMessage");
+        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppMessageRouter#routeMessage with debug context");
         OcppMessageType type = OcppMessageType.fromValue(message.getMessageTypeId());
 
         if (type == OcppMessageType.CALL) {
@@ -43,6 +58,15 @@ public class OcppMessageRouter {
         return null;
     }
 
+    /**
+     * Processes handle call for `OcppMessageRouter`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.service`.
+     * @param chargePointId input consumed by handleCall.
+     * @param message input consumed by handleCall.
+     * @return result produced by handleCall.
+     */
     private OcppJsonRpcMessage handleCall(String chargePointId, OcppJsonRpcMessage message) {
         String action = message.getAction();
         log.info("Handling CALL from {}: action={}, messageId={}", chargePointId, action, message.getMessageId());
@@ -72,11 +96,25 @@ public class OcppMessageRouter {
         }
     }
 
+    /**
+     * Processes handle call result for `OcppMessageRouter`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.service`.
+     * @param message input consumed by handleCallResult.
+     */
     private void handleCallResult(OcppJsonRpcMessage message) {
         log.debug("Handling CALL_RESULT: messageId={}", message.getMessageId());
         remoteCommandService.resolvePendingResponse(message.getMessageId(), message.getPayload());
     }
 
+    /**
+     * Processes handle call error for `OcppMessageRouter`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.service`.
+     * @param message input consumed by handleCallError.
+     */
     private void handleCallError(OcppJsonRpcMessage message) {
         log.warn("Handling CALL_ERROR: messageId={}, errorCode={}, description={}",
             message.getMessageId(), message.getErrorCode(), message.getErrorDescription());

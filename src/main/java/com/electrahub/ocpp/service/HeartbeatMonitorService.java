@@ -1,5 +1,7 @@
 package com.electrahub.ocpp.service;
 
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import com.electrahub.ocpp.domain.OcppConnection;
 import com.electrahub.ocpp.repository.OcppConnectionRepository;
 import com.electrahub.ocpp.websocket.ConnectionManager;
@@ -14,6 +16,8 @@ import java.time.temporal.ChronoUnit;
 @Service
 @Slf4j
 public class HeartbeatMonitorService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(HeartbeatMonitorService.class);
+
 
     private final ConnectionManager connectionManager;
     private final OcppConnectionRepository connectionRepository;
@@ -28,8 +32,16 @@ public class HeartbeatMonitorService {
         this.connectionRepository = connectionRepository;
     }
 
+    /**
+     * Validates check heartbeats for `HeartbeatMonitorService`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.service`.
+     */
     @Scheduled(fixedDelayString = "${ocpp.heartbeat.check-interval-seconds}000")
     public void checkHeartbeats() {
+        LOGGER.info("CODEx_ENTRY_LOG: Entering HeartbeatMonitorService#checkHeartbeats");
+        LOGGER.debug("CODEx_ENTRY_LOG: Entering HeartbeatMonitorService#checkHeartbeats with debug context");
         log.debug("Checking heartbeats for all connections");
 
         connectionRepository.findAllByActiveTrue().forEach(connection -> {
@@ -44,6 +56,13 @@ public class HeartbeatMonitorService {
         });
     }
 
+    /**
+     * Executes mark connection as offline for `HeartbeatMonitorService`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.service`.
+     * @param connection input consumed by markConnectionAsOffline.
+     */
     private void markConnectionAsOffline(OcppConnection connection) {
         connection.setActive(false);
         connection.setDisconnectedAt(Instant.now());

@@ -1,5 +1,7 @@
 package com.electrahub.ocpp.exception;
 
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +12,8 @@ import org.springframework.web.context.request.WebRequest;
 @ControllerAdvice
 @Slf4j
 public class RestExceptionHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger(RestExceptionHandler.class);
+
 
     @ExceptionHandler(ChargePointNotConnectedException.class)
     public ResponseEntity<ApiError> handleChargePointNotConnected(

@@ -1,5 +1,7 @@
 package com.electrahub.ocpp.websocket;
 
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import com.electrahub.ocpp.domain.enums.OcppMessageType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,6 +15,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OcppJsonRpcMessage {
+    private static final Logger LOGGER = LoggerFactory.getLogger(OcppJsonRpcMessage.class);
+
 
     private int messageTypeId;
     private String messageId;
@@ -22,7 +26,19 @@ public class OcppJsonRpcMessage {
     private String errorDescription;
     private JsonNode errorDetails;
 
+    /**
+     * Creates create call for `OcppJsonRpcMessage`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.websocket`.
+     * @param messageId input consumed by createCall.
+     * @param action input consumed by createCall.
+     * @param payload input consumed by createCall.
+     * @return result produced by createCall.
+     */
     public static OcppJsonRpcMessage createCall(String messageId, String action, JsonNode payload) {
+        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppJsonRpcMessage#createCall");
+        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppJsonRpcMessage#createCall with debug context");
         OcppJsonRpcMessage msg = new OcppJsonRpcMessage();
         msg.setMessageTypeId(OcppMessageType.CALL.getValue());
         msg.setMessageId(messageId);
@@ -31,6 +47,15 @@ public class OcppJsonRpcMessage {
         return msg;
     }
 
+    /**
+     * Creates create call result for `OcppJsonRpcMessage`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.websocket`.
+     * @param messageId input consumed by createCallResult.
+     * @param payload input consumed by createCallResult.
+     * @return result produced by createCallResult.
+     */
     public static OcppJsonRpcMessage createCallResult(String messageId, JsonNode payload) {
         OcppJsonRpcMessage msg = new OcppJsonRpcMessage();
         msg.setMessageTypeId(OcppMessageType.CALL_RESULT.getValue());
@@ -39,6 +64,17 @@ public class OcppJsonRpcMessage {
         return msg;
     }
 
+    /**
+     * Creates create call error for `OcppJsonRpcMessage`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.websocket`.
+     * @param messageId input consumed by createCallError.
+     * @param errorCode input consumed by createCallError.
+     * @param errorDescription input consumed by createCallError.
+     * @param errorDetails input consumed by createCallError.
+     * @return result produced by createCallError.
+     */
     public static OcppJsonRpcMessage createCallError(String messageId, String errorCode, String errorDescription, JsonNode errorDetails) {
         OcppJsonRpcMessage msg = new OcppJsonRpcMessage();
         msg.setMessageTypeId(OcppMessageType.CALL_ERROR.getValue());
@@ -49,6 +85,13 @@ public class OcppJsonRpcMessage {
         return msg;
     }
 
+    /**
+     * Executes to json for `OcppJsonRpcMessage`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.websocket`.
+     * @return result produced by toJson.
+     */
     public String toJson() {
         ObjectMapper mapper = new ObjectMapper();
         ArrayNode arrayNode = mapper.createArrayNode();
@@ -69,6 +112,14 @@ public class OcppJsonRpcMessage {
         return arrayNode.toString();
     }
 
+    /**
+     * Executes parse for `OcppJsonRpcMessage`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.websocket`.
+     * @param json input consumed by parse.
+     * @return result produced by parse.
+     */
     public static OcppJsonRpcMessage parse(String json) {
         ObjectMapper mapper = new ObjectMapper();
         try {

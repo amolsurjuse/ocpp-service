@@ -1,5 +1,7 @@
 package com.electrahub.ocpp.domain;
 
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,6 +22,8 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class OcppMessageLog {
+    private static final Logger LOGGER = LoggerFactory.getLogger(OcppMessageLog.class);
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

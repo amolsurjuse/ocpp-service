@@ -1,5 +1,7 @@
 package com.electrahub.ocpp.websocket;
 
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import com.electrahub.ocpp.domain.OcppConnection;
 import com.electrahub.ocpp.repository.OcppConnectionRepository;
 import com.electrahub.ocpp.service.OcppMessageLogService;
@@ -18,6 +20,8 @@ import java.util.UUID;
 @Service
 @Slf4j
 public class OcppWebSocketHandler extends TextWebSocketHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger(OcppWebSocketHandler.class);
+
 
     private final ConnectionManager connectionManager;
     private final OcppMessageRouter messageRouter;
@@ -35,8 +39,17 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
         this.messageLogService = messageLogService;
     }
 
+    /**
+     * Executes after connection established for `OcppWebSocketHandler`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.websocket`.
+     * @param session input consumed by afterConnectionEstablished.
+     */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppWebSocketHandler#afterConnectionEstablished");
+        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppWebSocketHandler#afterConnectionEstablished with debug context");
         String chargePointId = extractChargePointId(session);
         log.info("WebSocket connection established for charge point: {}", chargePointId);
 
@@ -54,6 +67,14 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
         log.debug("Saved OCPP connection to database: {}", chargePointId);
     }
 
+    /**
+     * Processes handle text message for `OcppWebSocketHandler`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.websocket`.
+     * @param session input consumed by handleTextMessage.
+     * @param message input consumed by handleTextMessage.
+     */
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws IOException {
         String chargePointId = extractChargePointId(session);
@@ -82,6 +103,14 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    /**
+     * Executes after connection closed for `OcppWebSocketHandler`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.websocket`.
+     * @param session input consumed by afterConnectionClosed.
+     * @param status input consumed by afterConnectionClosed.
+     */
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         String chargePointId = extractChargePointId(session);
@@ -97,6 +126,14 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
         });
     }
 
+    /**
+     * Processes handle transport error for `OcppWebSocketHandler`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.websocket`.
+     * @param session input consumed by handleTransportError.
+     * @param exception input consumed by handleTransportError.
+     */
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
         String chargePointId = extractChargePointId(session);
@@ -109,6 +146,14 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    /**
+     * Executes extract charge point id for `OcppWebSocketHandler`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.websocket`.
+     * @param session input consumed by extractChargePointId.
+     * @return result produced by extractChargePointId.
+     */
     private String extractChargePointId(WebSocketSession session) {
         String path = session.getUri().getPath();
         int lastSlash = path.lastIndexOf('/');

@@ -1,5 +1,7 @@
 package com.electrahub.ocpp.handler;
 
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import com.electrahub.ocpp.repository.OcppConnectionRepository;
 import com.electrahub.ocpp.websocket.ConnectionManager;
 import com.electrahub.ocpp.service.OcppMessageHandler;
@@ -14,6 +16,8 @@ import java.time.Instant;
 @Component
 @Slf4j
 public class HeartbeatHandler implements OcppMessageHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger(HeartbeatHandler.class);
+
 
     private final ConnectionManager connectionManager;
     private final OcppConnectionRepository connectionRepository;
@@ -26,11 +30,29 @@ public class HeartbeatHandler implements OcppMessageHandler {
         this.connectionRepository = connectionRepository;
     }
 
+    /**
+     * Retrieves get action for `HeartbeatHandler`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.handler`.
+     * @return result produced by getAction.
+     */
     @Override
     public String getAction() {
+        LOGGER.info("CODEx_ENTRY_LOG: Entering HeartbeatHandler#getAction");
+        LOGGER.debug("CODEx_ENTRY_LOG: Entering HeartbeatHandler#getAction with debug context");
         return "Heartbeat";
     }
 
+    /**
+     * Processes handle for `HeartbeatHandler`.
+     *
+     * <p>Detailed behavior: follows the current implementation path and
+     * enforces component-specific rules in `com.electrahub.ocpp.handler`.
+     * @param chargePointId input consumed by handle.
+     * @param payload input consumed by handle.
+     * @return result produced by handle.
+     */
     @Override
     public JsonNode handle(String chargePointId, JsonNode payload) {
         try {

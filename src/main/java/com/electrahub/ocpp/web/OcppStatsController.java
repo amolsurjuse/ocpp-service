@@ -1,5 +1,7 @@
 package com.electrahub.ocpp.web;
 
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
 import com.electrahub.ocpp.domain.OcppMessageLog;
 import com.electrahub.ocpp.repository.OcppConnectionRepository;
 import com.electrahub.ocpp.repository.OcppMessageLogRepository;
@@ -18,6 +20,8 @@ import java.util.Map;
 @RequestMapping("/api/v1/ocpp/stats")
 @Slf4j
 public class OcppStatsController {
+    private static final Logger LOGGER = LoggerFactory.getLogger(OcppStatsController.class);
+
 
     private final OcppMessageLogRepository messageLogRepository;
     private final OcppConnectionRepository connectionRepository;
@@ -31,7 +35,17 @@ public class OcppStatsController {
 
     @GetMapping("/messages")
     public ResponseEntity<Map<String, Object>> getMessageStatistics(
+            /**
+             * Executes request param for `OcppStatsController`.
+             *
+             * <p>Detailed behavior: follows the current implementation path and
+             * enforces component-specific rules in `com.electrahub.ocpp.web`.
+             * @param chargePointId input consumed by RequestParam.
+             * @return result produced by RequestParam.
+             */
             @RequestParam(required = false) String chargePointId) {
+                LOGGER.info("CODEx_ENTRY_LOG: Entering OcppStatsController#RequestParam");
+                LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppStatsController#RequestParam with debug context");
         try {
             Map<String, Object> stats = new HashMap<>();
 
@@ -57,6 +71,14 @@ public class OcppStatsController {
 
     @GetMapping("/connections/history")
     public ResponseEntity<Page<OcppMessageLog>> getConnectionHistory(
+            /**
+             * Executes request param for `OcppStatsController`.
+             *
+             * <p>Detailed behavior: follows the current implementation path and
+             * enforces component-specific rules in `com.electrahub.ocpp.web`.
+             * @param chargePointId input consumed by RequestParam.
+             * @return result produced by RequestParam.
+             */
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String chargePointId) {
