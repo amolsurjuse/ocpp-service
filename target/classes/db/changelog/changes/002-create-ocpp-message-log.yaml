@@ -1,0 +1,85 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-ocpp-message-log-table
+      author: electrahub
+      changes:
+        - createTable:
+            tableName: ocpp_message_log
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: charge_point_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: message_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: direction
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: action
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: payload
+                  type: TEXT
+                  constraints:
+                    nullable: true
+              - column:
+                  name: response_payload
+                  type: TEXT
+                  constraints:
+                    nullable: true
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: error_code
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: responded_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: true
+
+        - createIndex:
+            tableName: ocpp_message_log
+            indexName: idx_charge_point_id_msg
+            columns:
+              - column:
+                  name: charge_point_id
+
+        - createIndex:
+            tableName: ocpp_message_log
+            indexName: idx_message_id_log
+            columns:
+              - column:
+                  name: message_id
+
+        - createIndex:
+            tableName: ocpp_message_log
+            indexName: idx_created_at
+            columns:
+              - column:
+                  name: created_at

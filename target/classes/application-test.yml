@@ -1,0 +1,45 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: ocpp-service
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: false
+  liquibase:
+    enabled: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+ocpp:
+  websocket:
+    enabled: false
+    max-text-message-size: 65536
+    max-binary-message-size: 65536
+  heartbeat:
+    timeout-seconds: 120
+    check-interval-seconds: 30
+  message:
+    response-timeout-seconds: 30
+
+integration:
+  station-service:
+    base-url: http://localhost:8081
+  session-service:
+    base-url: http://localhost:8083
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

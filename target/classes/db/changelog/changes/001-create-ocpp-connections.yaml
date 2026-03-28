@@ -1,0 +1,70 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-ocpp-connections-table
+      author: electrahub
+      changes:
+        - createTable:
+            tableName: ocpp_connections
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: charge_point_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: session_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: node_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: ocpp_protocol
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: connected_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: last_heartbeat_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: true
+              - column:
+                  name: disconnected_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: true
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  defaultValue: true
+                  constraints:
+                    nullable: false
+
+        - createIndex:
+            tableName: ocpp_connections
+            indexName: idx_charge_point_id
+            columns:
+              - column:
+                  name: charge_point_id
+
+        - createIndex:
+            tableName: ocpp_connections
+            indexName: idx_active
+            columns:
+              - column:
+                  name: active
