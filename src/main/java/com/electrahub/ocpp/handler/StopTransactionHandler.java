@@ -1,21 +1,16 @@
 package com.electrahub.ocpp.handler;
 
-import org.slf4j.LoggerFactory;
-import org.slf4j.Logger;
 import com.electrahub.ocpp.integration.SessionServiceClient;
 import com.electrahub.ocpp.service.OcppMessageHandler;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
 public class StopTransactionHandler implements OcppMessageHandler {
-    private static final Logger LOGGER = LoggerFactory.getLogger(StopTransactionHandler.class);
-
-
     private final SessionServiceClient sessionServiceClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -27,8 +22,6 @@ public class StopTransactionHandler implements OcppMessageHandler {
      * @param sessionServiceClient input consumed by StopTransactionHandler.
      */
     public StopTransactionHandler(SessionServiceClient sessionServiceClient) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering StopTransactionHandler#StopTransactionHandler");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering StopTransactionHandler#StopTransactionHandler with debug context");
         this.sessionServiceClient = sessionServiceClient;
     }
 
@@ -63,14 +56,7 @@ public class StopTransactionHandler implements OcppMessageHandler {
 
             log.info("Stopping transaction: {}, meter: {}", transactionId, meterStop);
 
-            // Call session service to complete session
-            sessionServiceClient.stopSession(
-                transactionId,
-                objectMapper.createObjectNode()
-                    .put("meterId", meterStop)
-                    .put("endTime", timestamp)
-                    .put("reason", reason)
-            );
+            sessionServiceClient.onStopTransaction(transactionId, meterStop, timestamp, reason);
 
             ObjectNode idTagInfo = objectMapper.createObjectNode();
             idTagInfo.put("status", "Accepted");
