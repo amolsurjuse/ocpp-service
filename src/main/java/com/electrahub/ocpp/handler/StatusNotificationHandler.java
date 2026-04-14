@@ -1,22 +1,19 @@
 package com.electrahub.ocpp.handler;
 
-import org.slf4j.LoggerFactory;
-import org.slf4j.Logger;
+import com.electrahub.ocpp.integration.SessionServiceClient;
 import com.electrahub.ocpp.integration.StationServiceClient;
 import com.electrahub.ocpp.service.OcppMessageHandler;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
 public class StatusNotificationHandler implements OcppMessageHandler {
-    private static final Logger LOGGER = LoggerFactory.getLogger(StatusNotificationHandler.class);
-
-
     private final StationServiceClient stationServiceClient;
+    private final SessionServiceClient sessionServiceClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -26,10 +23,12 @@ public class StatusNotificationHandler implements OcppMessageHandler {
      * enforces component-specific rules in `com.electrahub.ocpp.handler`.
      * @param stationServiceClient input consumed by StatusNotificationHandler.
      */
-    public StatusNotificationHandler(StationServiceClient stationServiceClient) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering StatusNotificationHandler#StatusNotificationHandler");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering StatusNotificationHandler#StatusNotificationHandler with debug context");
+    public StatusNotificationHandler(
+            StationServiceClient stationServiceClient,
+            SessionServiceClient sessionServiceClient
+    ) {
         this.stationServiceClient = stationServiceClient;
+        this.sessionServiceClient = sessionServiceClient;
     }
 
     /**
@@ -60,12 +59,21 @@ public class StatusNotificationHandler implements OcppMessageHandler {
             String status = payload.path("status").asText();
             String errorCode = payload.path("errorCode").asText();
             String timestamp = payload.path("timestamp").asText();
+            JsonNode txNode = payload.path("transactionId");
+            Integer transactionId = (txNode.isMissingNode() || txNode.isNull()) ? null : txNode.asInt();
 
             log.info("Connector status update: chargePoint={}, connector={}, status={}, errorCode={}",
                 chargePointId, connectorId, status, errorCode);
 
-            // Call station service to update connector status
             stationServiceClient.updateConnectorStatus(chargePointId, connectorId, status);
+            sessionServiceClient.onStatusNotification(
+                    chargePointId,
+                    connectorId,
+                    status,
+                    errorCode,
+                    timestamp,
+                    transactionId
+            );
 
             ObjectNode response = objectMapper.createObjectNode();
             log.debug("StatusNotification response sent");

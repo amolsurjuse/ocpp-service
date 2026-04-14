@@ -1,133 +1,158 @@
 package com.electrahub.ocpp.integration;
 
-import org.slf4j.LoggerFactory;
-import org.slf4j.Logger;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+
+import java.math.BigDecimal;
+import java.util.Map;
 
 @Service
 @Slf4j
 public class SessionServiceClient {
-    private static final Logger LOGGER = LoggerFactory.getLogger(SessionServiceClient.class);
-
 
     private final RestClient restClient;
-    private final String baseUrl;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SessionServiceClient(
             RestClient.Builder restClientBuilder,
-            /**
-             * Executes value for `SessionServiceClient`.
-             *
-             * <p>Detailed behavior: follows the current implementation path and
-             * enforces component-specific rules in `com.electrahub.ocpp.integration`.
-             * @param baseUrl input consumed by Value.
-             * @return result produced by Value.
-             */
-            @Value("${integration.session-service.base-url}") String baseUrl) {
-                LOGGER.info("CODEx_ENTRY_LOG: Entering SessionServiceClient#Value");
-                LOGGER.debug("CODEx_ENTRY_LOG: Entering SessionServiceClient#Value with debug context");
-        this.baseUrl = baseUrl;
+            @Value("${integration.session-service.base-url}") String baseUrl
+    ) {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }
 
-    /**
-     * Executes authorize for `SessionServiceClient`.
-     *
-     * <p>Detailed behavior: follows the current implementation path and
-     * enforces component-specific rules in `com.electrahub.ocpp.integration`.
-     * @param idTag input consumed by authorize.
-     * @return result produced by authorize.
-     */
     public boolean authorize(String idTag) {
         try {
             JsonNode response = restClient.post()
-                .uri("/api/v1/sessions/authorize")
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .body(new java.util.HashMap<String, String>() {{
-                    put("idTag", idTag);
-                }})
-                .retrieve()
-                .body(JsonNode.class);
-
-            boolean authorized = response.path("authorized").asBoolean(false);
-            log.debug("Authorization result for {}: {}", idTag, authorized);
-            return authorized;
-        } catch (Exception e) {
-            log.error("Error authorizing idTag: {}", e.getMessage(), e);
+                    .uri("/api/v1/sessions/authorize")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("idTag", idTag))
+                    .retrieve()
+                    .body(JsonNode.class);
+            return response != null && response.path("authorized").asBoolean(false);
+        } catch (Exception ex) {
+            log.warn("Authorize callback failed for idTag={}", idTag, ex);
             return false;
         }
     }
 
-    /**
-     * Creates start session for `SessionServiceClient`.
-     *
-     * <p>Detailed behavior: follows the current implementation path and
-     * enforces component-specific rules in `com.electrahub.ocpp.integration`.
-     * @param request input consumed by startSession.
-     * @return result produced by startSession.
-     */
-    public JsonNode startSession(JsonNode request) {
-        try {
-            return restClient.post()
-                .uri("/api/v1/sessions")
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(JsonNode.class);
-        } catch (Exception e) {
-            log.error("Error starting session: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to start session", e);
-        }
-    }
+    public void onStartTransaction(
+            String chargePointId,
+            Integer connectorId,
+            String idTag,
+            Integer meterStart,
+            String timestamp,
+            Integer transactionId
+    ) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
+        payload.put("connectorId", connectorId == null ? 0 : connectorId);
+        payload.put("idTag", nullSafe(idTag, ""));
+        payload.put("meterStart", meterStart == null ? 0 : meterStart);
+        putNullableText(payload, "timestamp", timestamp);
+        payload.put("transactionId", transactionId == null ? 0 : transactionId);
 
-    /**
-     * Executes stop session for `SessionServiceClient`.
-     *
-     * <p>Detailed behavior: follows the current implementation path and
-     * enforces component-specific rules in `com.electrahub.ocpp.integration`.
-     * @param transactionId input consumed by stopSession.
-     * @param request input consumed by stopSession.
-     * @return result produced by stopSession.
-     */
-    public JsonNode stopSession(int transactionId, JsonNode request) {
-        try {
-            return restClient.post()
-                .uri("/api/v1/sessions/{transactionId}/stop", transactionId)
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(JsonNode.class);
-        } catch (Exception e) {
-            log.error("Error stopping session: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to stop session", e);
-        }
-    }
-
-    /**
-     * Creates add meter values for `SessionServiceClient`.
-     *
-     * <p>Detailed behavior: follows the current implementation path and
-     * enforces component-specific rules in `com.electrahub.ocpp.integration`.
-     * @param transactionId input consumed by addMeterValues.
-     * @param meterValues input consumed by addMeterValues.
-     */
-    public void addMeterValues(int transactionId, JsonNode meterValues) {
-        try {
-            restClient.post()
-                .uri("/api/v1/sessions/{transactionId}/meter-values", transactionId)
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .body(meterValues)
+        restClient.post()
+                .uri("/api/v1/sessions/ocpp/start-transaction")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(payload)
                 .retrieve()
                 .toBodilessEntity();
+    }
 
-            log.debug("Added meter values for transaction: {}", transactionId);
-        } catch (Exception e) {
-            log.error("Error adding meter values: {}", e.getMessage(), e);
+    public void onStopTransaction(int transactionId, Integer meterStop, String timestamp, String reason) {
+        try {
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("meterStop", meterStop == null ? 0 : meterStop);
+            putNullableText(payload, "timestamp", timestamp);
+            payload.put("reason", nullSafe(reason, "Local"));
+
+            restClient.post()
+                    .uri("/api/v1/sessions/ocpp/stop-transaction/{transactionId}", transactionId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(payload)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception ex) {
+            log.warn("StopTransaction callback failed for transactionId={}", transactionId, ex);
+            throw ex;
         }
     }
 
+    public void onMeterValues(
+            int transactionId,
+            Integer connectorId,
+            String timestamp,
+            BigDecimal energyWh,
+            BigDecimal powerW
+    ) {
+        try {
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("connectorId", connectorId == null ? 0 : connectorId);
+            putNullableText(payload, "timestamp", timestamp);
+            payload.put("energyWh", energyWh == null ? BigDecimal.ZERO : energyWh);
+            payload.put("powerW", powerW == null ? BigDecimal.ZERO : powerW);
+
+            restClient.post()
+                    .uri("/api/v1/sessions/ocpp/meter-values/{transactionId}", transactionId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(payload)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception ex) {
+            log.warn("MeterValues callback failed for transactionId={}", transactionId, ex);
+        }
+    }
+
+    public void onStatusNotification(
+            String chargePointId,
+            Integer connectorId,
+            String status,
+            String errorCode,
+            String timestamp,
+            Integer transactionId
+    ) {
+        try {
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
+            payload.put("connectorId", connectorId == null ? 0 : connectorId);
+            payload.put("status", nullSafe(status, "Unavailable"));
+            payload.put("errorCode", nullSafe(errorCode, "NoError"));
+            putNullableText(payload, "timestamp", timestamp);
+            if (transactionId == null) {
+                payload.putNull("transactionId");
+            } else {
+                payload.put("transactionId", transactionId);
+            }
+
+            restClient.post()
+                    .uri("/api/v1/sessions/ocpp/status-notification")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(payload)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception ex) {
+            log.warn("StatusNotification callback failed for chargePointId={}, connectorId={}", chargePointId, connectorId, ex);
+        }
+    }
+
+    private void putNullableText(ObjectNode payload, String key, String value) {
+        if (value == null || value.isBlank()) {
+            payload.putNull(key);
+            return;
+        }
+        payload.put(key, value);
+    }
+
+    private String nullSafe(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value;
+    }
 }

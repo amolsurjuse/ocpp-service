@@ -1,21 +1,18 @@
 package com.electrahub.ocpp.handler;
 
-import org.slf4j.LoggerFactory;
-import org.slf4j.Logger;
 import com.electrahub.ocpp.integration.SessionServiceClient;
 import com.electrahub.ocpp.service.OcppMessageHandler;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+
+import java.time.Instant;
 
 @Component
 @Slf4j
 public class StartTransactionHandler implements OcppMessageHandler {
-    private static final Logger LOGGER = LoggerFactory.getLogger(StartTransactionHandler.class);
-
-
     private final SessionServiceClient sessionServiceClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -27,8 +24,6 @@ public class StartTransactionHandler implements OcppMessageHandler {
      * @param sessionServiceClient input consumed by StartTransactionHandler.
      */
     public StartTransactionHandler(SessionServiceClient sessionServiceClient) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering StartTransactionHandler#StartTransactionHandler");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering StartTransactionHandler#StartTransactionHandler with debug context");
         this.sessionServiceClient = sessionServiceClient;
     }
 
@@ -60,21 +55,19 @@ public class StartTransactionHandler implements OcppMessageHandler {
             String idTag = payload.path("idTag").asText();
             int meterStart = payload.path("meterStart").asInt();
             String timestamp = payload.path("timestamp").asText();
+            int transactionId = payload.path("transactionId").asInt(generateTransactionId());
 
             log.info("Starting transaction for charge point: {}, connector: {}, idTag: {}",
                 chargePointId, connectorId, idTag);
 
-            // Call session service to create session
-            JsonNode sessionResponse = sessionServiceClient.startSession(
-                objectMapper.createObjectNode()
-                    .put("chargePointId", chargePointId)
-                    .put("connectorId", connectorId)
-                    .put("idTag", idTag)
-                    .put("meterStart", meterStart)
-                    .put("startTime", timestamp)
+            sessionServiceClient.onStartTransaction(
+                    chargePointId,
+                    connectorId,
+                    idTag,
+                    meterStart,
+                    timestamp,
+                    transactionId
             );
-
-            int transactionId = sessionResponse.path("sessionId").asInt();
 
             ObjectNode idTagInfo = objectMapper.createObjectNode();
             idTagInfo.put("status", "Accepted");
@@ -94,6 +87,11 @@ public class StartTransactionHandler implements OcppMessageHandler {
             response.set("idTagInfo", idTagInfo);
             return response;
         }
+    }
+
+    private int generateTransactionId() {
+        long nowMillis = Instant.now().toEpochMilli();
+        return (int) (nowMillis % Integer.MAX_VALUE);
     }
 
 }
