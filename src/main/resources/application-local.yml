@@ -1,0 +1,36 @@
+server:
+  port: 8082
+
+spring:
+  datasource:
+    url: ${LOCAL_DB_URL:jdbc:postgresql://127.0.0.1:58318/ocpp_db}
+    username: ${LOCAL_DB_USERNAME:appuser}
+    password: ${LOCAL_DB_PASSWORD:Password@123}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+  data:
+    redis:
+      host: ${LOCAL_REDIS_HOST:127.0.0.1}
+      port: ${LOCAL_REDIS_PORT:6379}
+      password: ${LOCAL_REDIS_PASSWORD:}
+
+integration:
+  station-service:
+    base-url: ${LOCAL_STATION_SERVICE_URL:http://127.0.0.1:8081}
+  session-service:
+    base-url: ${LOCAL_SESSION_SERVICE_URL:http://127.0.0.1:8083}
+
+logging:
+  level:
+    root: INFO
