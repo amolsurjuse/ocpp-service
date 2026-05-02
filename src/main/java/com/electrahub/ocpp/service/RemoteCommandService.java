@@ -66,11 +66,11 @@ public class RemoteCommandService {
         OcppJsonRpcMessage message = OcppJsonRpcMessage.createCall(messageId, action, payload);
         String messageJson = message.toJson();
 
+        pendingResponses.put(messageId, future);
+
         try {
             connectionManager.sendMessage(chargePointId, messageJson);
             log.info("Sent command to {}: action={}, messageId={}", chargePointId, action, messageId);
-
-            pendingResponses.put(messageId, future);
 
             future.orTimeout(responseTimeoutSeconds, TimeUnit.SECONDS)
                 .exceptionally(throwable -> {
