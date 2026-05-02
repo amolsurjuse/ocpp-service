@@ -5,8 +5,10 @@ import org.slf4j.Logger;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -75,6 +77,23 @@ public class ConnectionManager {
         return localSessions.get(chargePointId);
     }
 
+    public void sendMessage(String chargePointId, String payload) throws IOException {
+        WebSocketSession session = localSessions.get(chargePointId);
+        if (session == null || !session.isOpen()) {
+            throw new IOException("WebSocket session is not open for charge point: " + chargePointId);
+        }
+        sendMessage(session, payload);
+    }
+
+    public void sendMessage(WebSocketSession session, String payload) throws IOException {
+        synchronized (session) {
+            if (!session.isOpen()) {
+                throw new IOException("WebSocket session is not open");
+            }
+            session.sendMessage(new TextMessage(payload));
+        }
+    }
+
     /**
      * Executes is connected for `ConnectionManager`.
      *
@@ -84,7 +103,8 @@ public class ConnectionManager {
      * @return result produced by isConnected.
      */
     public boolean isConnected(String chargePointId) {
-        return localSessions.containsKey(chargePointId);
+        WebSocketSession session = localSessions.get(chargePointId);
+        return session != null && session.isOpen();
     }
 
     /**

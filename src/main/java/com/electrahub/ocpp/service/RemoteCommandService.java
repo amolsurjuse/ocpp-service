@@ -12,7 +12,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.socket.TextMessage;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -68,8 +67,7 @@ public class RemoteCommandService {
         String messageJson = message.toJson();
 
         try {
-            var session = connectionManager.getSession(chargePointId);
-            session.sendMessage(new TextMessage(messageJson));
+            connectionManager.sendMessage(chargePointId, messageJson);
             log.info("Sent command to {}: action={}, messageId={}", chargePointId, action, messageId);
 
             pendingResponses.put(messageId, future);

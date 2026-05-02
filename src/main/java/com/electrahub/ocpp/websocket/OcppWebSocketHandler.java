@@ -88,7 +88,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
 
             if (response != null) {
                 String responseJson = response.toJson();
-                session.sendMessage(new TextMessage(responseJson));
+                connectionManager.sendMessage(session, responseJson);
                 log.debug("Sent response to {}: {}", chargePointId, responseJson);
             }
         } catch (Exception e) {
@@ -99,7 +99,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
                 "Failed to process message",
                 null
             );
-            session.sendMessage(new TextMessage(errorResponse.toJson()));
+            connectionManager.sendMessage(session, errorResponse.toJson());
         }
     }
 
