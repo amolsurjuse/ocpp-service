@@ -7,6 +7,7 @@ import com.electrahub.ocpp.repository.OcppConnectionRepository;
 import com.electrahub.ocpp.service.OcppMessageLogService;
 import com.electrahub.ocpp.service.OcppMessageRouter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -63,8 +64,12 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
             .active(true)
             .build();
 
-        connectionRepository.save(connection);
-        log.debug("Saved OCPP connection to database: {}", chargePointId);
+        try {
+            connectionRepository.save(connection);
+            log.debug("Saved OCPP connection to database: {}", chargePointId);
+        } catch (DataAccessException ex) {
+            log.warn("Unable to persist OCPP connection audit row for {}: {}", chargePointId, ex.getMessage());
+        }
     }
 
     /**
@@ -118,12 +123,16 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
 
         connectionManager.removeConnection(chargePointId);
 
-        connectionRepository.findByChargePointId(chargePointId).ifPresent(connection -> {
-            connection.setDisconnectedAt(Instant.now());
-            connection.setActive(false);
-            connectionRepository.save(connection);
-            log.debug("Updated OCPP connection in database: {}", chargePointId);
-        });
+        try {
+            connectionRepository.findByChargePointId(chargePointId).ifPresent(connection -> {
+                connection.setDisconnectedAt(Instant.now());
+                connection.setActive(false);
+                connectionRepository.save(connection);
+                log.debug("Updated OCPP connection in database: {}", chargePointId);
+            });
+        } catch (DataAccessException ex) {
+            log.warn("Unable to persist OCPP disconnect audit row for {}: {}", chargePointId, ex.getMessage());
+        }
     }
 
     /**
