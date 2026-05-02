@@ -35,7 +35,7 @@ public class RemoteCommandController {
 
     @PostMapping("/{chargePointId}/remote-start")
     public ResponseEntity<CommandResponse> remoteStart(
-            @PathVariable String chargePointId,
+            @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody RemoteStartRequest request) {
         try {
             log.info("Remote start command for {}: idTag={}", chargePointId, request.idTag());
@@ -51,7 +51,7 @@ public class RemoteCommandController {
 
     @PostMapping("/{chargePointId}/remote-stop")
     public ResponseEntity<CommandResponse> remoteStop(
-            @PathVariable String chargePointId,
+            @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody RemoteStopRequest request) {
         try {
             log.info("Remote stop command for {}: transactionId={}", chargePointId, request.transactionId());
@@ -67,7 +67,7 @@ public class RemoteCommandController {
 
     @PostMapping("/{chargePointId}/reset")
     public ResponseEntity<CommandResponse> reset(
-            @PathVariable String chargePointId,
+            @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody ResetRequest request) {
         try {
             log.info("Reset command for {}: type={}", chargePointId, request.type());
@@ -83,7 +83,7 @@ public class RemoteCommandController {
 
     @PostMapping("/{chargePointId}/unlock-connector")
     public ResponseEntity<CommandResponse> unlockConnector(
-            @PathVariable String chargePointId,
+            @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody UnlockConnectorRequest request) {
         try {
             log.info("Unlock connector command for {}: connectorId={}", chargePointId, request.connectorId());
@@ -99,7 +99,7 @@ public class RemoteCommandController {
 
     @PostMapping("/{chargePointId}/set-charging-profile")
     public ResponseEntity<CommandResponse> setChargingProfile(
-            @PathVariable String chargePointId,
+            @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody SetChargingProfileRequest request) {
         try {
             log.info("Set charging profile command for {}: connectorId={}", chargePointId, request.connectorId());
@@ -115,7 +115,7 @@ public class RemoteCommandController {
 
     @PostMapping("/{chargePointId}/change-configuration")
     public ResponseEntity<CommandResponse> changeConfiguration(
-            @PathVariable String chargePointId,
+            @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody ChangeConfigurationRequest request) {
         try {
             log.info("Change configuration command for {}: key={}", chargePointId, request.key());
@@ -131,7 +131,7 @@ public class RemoteCommandController {
 
     @PostMapping("/{chargePointId}/get-configuration")
     public ResponseEntity<CommandResponse> getConfiguration(
-            @PathVariable String chargePointId,
+            @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody GetConfigurationRequest request) {
         try {
             log.info("Get configuration command for {}", chargePointId);
@@ -147,7 +147,7 @@ public class RemoteCommandController {
 
     @PostMapping("/{chargePointId}/trigger-message")
     public ResponseEntity<CommandResponse> triggerMessage(
-            @PathVariable String chargePointId,
+            @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody TriggerMessageRequest request) {
         try {
             log.info("Trigger message command for {}: message={}", chargePointId, request.requestedMessage());

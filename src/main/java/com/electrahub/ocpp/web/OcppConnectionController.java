@@ -67,7 +67,7 @@ public class OcppConnectionController {
      * @return result produced by getConnection.
      */
     @GetMapping("/{chargePointId}")
-    public ResponseEntity<ConnectionDto> getConnection(@PathVariable String chargePointId) {
+    public ResponseEntity<ConnectionDto> getConnection(@PathVariable("chargePointId") String chargePointId) {
         return connectionRepository.findByChargePointIdAndActiveTrue(chargePointId)
             .map(this::toDto)
             .map(ResponseEntity::ok)
