@@ -3,6 +3,7 @@ package com.electrahub.ocpp.websocket;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
@@ -47,8 +48,11 @@ public class ConnectionManager {
      */
     public void registerConnection(String chargePointId, WebSocketSession session) {
         localSessions.put(chargePointId, session);
-        // Store in Redis for multi-node awareness
-        redisTemplate.opsForValue().set("ocpp:connection:" + chargePointId, nodeId);
+        try {
+            redisTemplate.opsForValue().set("ocpp:connection:" + chargePointId, nodeId);
+        } catch (DataAccessException ex) {
+            log.warn("Unable to store Redis connection marker for charge point {}: {}", chargePointId, ex.getMessage());
+        }
         log.info("Registered connection for charge point: {} on node: {}", chargePointId, nodeId);
     }
 
@@ -61,7 +65,11 @@ public class ConnectionManager {
      */
     public void removeConnection(String chargePointId) {
         localSessions.remove(chargePointId);
-        redisTemplate.delete("ocpp:connection:" + chargePointId);
+        try {
+            redisTemplate.delete("ocpp:connection:" + chargePointId);
+        } catch (DataAccessException ex) {
+            log.warn("Unable to remove Redis connection marker for charge point {}: {}", chargePointId, ex.getMessage());
+        }
         log.info("Removed connection for charge point: {}", chargePointId);
     }
 
