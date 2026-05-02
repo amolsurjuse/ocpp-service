@@ -65,8 +65,12 @@ public class BootNotificationHandler implements OcppMessageHandler {
             String chargePointSerialNumber = payload.path("chargePointSerialNumber").asText("");
             String firmwareVersion = payload.path("firmwareVersion").asText("");
 
-            // Call station service to update station info
-            stationServiceClient.getStation(chargePointId);
+            try {
+                stationServiceClient.getStation(chargePointId);
+            } catch (Exception ex) {
+                log.warn("Station metadata lookup failed for {}; accepting BootNotification anyway: {}",
+                    chargePointId, ex.getMessage());
+            }
 
             ObjectNode response = objectMapper.createObjectNode();
             response.put("status", "Accepted");
