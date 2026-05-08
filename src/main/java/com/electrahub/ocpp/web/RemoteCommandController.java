@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import com.electrahub.ocpp.service.RemoteCommandService;
 import com.electrahub.ocpp.web.dto.*;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,7 @@ public class RemoteCommandController {
 
 
     private final RemoteCommandService remoteCommandService;
+    private final ObjectMapper objectMapper;
 
     /**
      * Executes remote command controller for `RemoteCommandController`.
@@ -27,10 +29,11 @@ public class RemoteCommandController {
      * enforces component-specific rules in `com.electrahub.ocpp.web`.
      * @param remoteCommandService input consumed by RemoteCommandController.
      */
-    public RemoteCommandController(RemoteCommandService remoteCommandService) {
+    public RemoteCommandController(RemoteCommandService remoteCommandService, ObjectMapper objectMapper) {
         LOGGER.info("CODEx_ENTRY_LOG: Entering RemoteCommandController#RemoteCommandController");
         LOGGER.debug("CODEx_ENTRY_LOG: Entering RemoteCommandController#RemoteCommandController with debug context");
         this.remoteCommandService = remoteCommandService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping("/{chargePointId}/remote-start")
@@ -42,7 +45,7 @@ public class RemoteCommandController {
             JsonNode result = remoteCommandService
                 .remoteStartTransaction(chargePointId, request.idTag(), request.connectorId())
                 .get();
-            return ResponseEntity.ok(new CommandResponse("success", result));
+            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
         } catch (Exception e) {
             log.error("Error in remote start: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(new CommandResponse("error", null));
@@ -58,7 +61,7 @@ public class RemoteCommandController {
             JsonNode result = remoteCommandService
                 .remoteStopTransaction(chargePointId, request.transactionId())
                 .get();
-            return ResponseEntity.ok(new CommandResponse("success", result));
+            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
         } catch (Exception e) {
             log.error("Error in remote stop: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(new CommandResponse("error", null));
@@ -74,7 +77,7 @@ public class RemoteCommandController {
             JsonNode result = remoteCommandService
                 .reset(chargePointId, request.type())
                 .get();
-            return ResponseEntity.ok(new CommandResponse("success", result));
+            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
         } catch (Exception e) {
             log.error("Error in reset: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(new CommandResponse("error", null));
@@ -90,7 +93,7 @@ public class RemoteCommandController {
             JsonNode result = remoteCommandService
                 .unlockConnector(chargePointId, request.connectorId())
                 .get();
-            return ResponseEntity.ok(new CommandResponse("success", result));
+            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
         } catch (Exception e) {
             log.error("Error in unlock connector: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(new CommandResponse("error", null));
@@ -106,7 +109,7 @@ public class RemoteCommandController {
             JsonNode result = remoteCommandService
                 .setChargingProfile(chargePointId, request.connectorId(), request.chargingProfile())
                 .get();
-            return ResponseEntity.ok(new CommandResponse("success", result));
+            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
         } catch (Exception e) {
             log.error("Error in set charging profile: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(new CommandResponse("error", null));
@@ -122,7 +125,7 @@ public class RemoteCommandController {
             JsonNode result = remoteCommandService
                 .changeConfiguration(chargePointId, request.key(), request.value())
                 .get();
-            return ResponseEntity.ok(new CommandResponse("success", result));
+            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
         } catch (Exception e) {
             log.error("Error in change configuration: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(new CommandResponse("error", null));
@@ -138,7 +141,7 @@ public class RemoteCommandController {
             JsonNode result = remoteCommandService
                 .getConfiguration(chargePointId, request.keys())
                 .get();
-            return ResponseEntity.ok(new CommandResponse("success", result));
+            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
         } catch (Exception e) {
             log.error("Error in get configuration: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(new CommandResponse("error", null));
@@ -154,11 +157,18 @@ public class RemoteCommandController {
             JsonNode result = remoteCommandService
                 .triggerMessage(chargePointId, request.requestedMessage())
                 .get();
-            return ResponseEntity.ok(new CommandResponse("success", result));
+            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
         } catch (Exception e) {
             log.error("Error in trigger message: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(new CommandResponse("error", null));
         }
+    }
+
+    private Object responsePayload(JsonNode result) {
+        if (result == null || result.isNull()) {
+            return null;
+        }
+        return objectMapper.convertValue(result, Object.class);
     }
 
 }
