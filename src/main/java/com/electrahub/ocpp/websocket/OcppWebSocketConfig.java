@@ -27,8 +27,8 @@ public class OcppWebSocketConfig implements WebSocketConfigurer {
      * @param ocppWebSocketHandler input consumed by OcppWebSocketConfig.
      */
     public OcppWebSocketConfig(OcppWebSocketHandler ocppWebSocketHandler) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppWebSocketConfig#OcppWebSocketConfig");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppWebSocketConfig#OcppWebSocketConfig with debug context");
+        LOGGER.info(" Entering OcppWebSocketConfig#OcppWebSocketConfig");
+        LOGGER.debug(" Entering OcppWebSocketConfig#OcppWebSocketConfig with debug context");
         this.ocppWebSocketHandler = ocppWebSocketHandler;
     }
 

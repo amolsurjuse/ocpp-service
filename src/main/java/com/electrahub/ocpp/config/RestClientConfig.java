@@ -20,8 +20,8 @@ public class RestClientConfig {
      */
     @Bean
     public RestClient.Builder restClientBuilder() {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering RestClientConfig#restClientBuilder");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering RestClientConfig#restClientBuilder with debug context");
+        LOGGER.info(" Entering RestClientConfig#restClientBuilder");
+        LOGGER.debug(" Entering RestClientConfig#restClientBuilder with debug context");
         return RestClient.builder();
     }
 }

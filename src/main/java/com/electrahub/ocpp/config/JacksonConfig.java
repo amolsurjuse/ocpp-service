@@ -22,8 +22,8 @@ public class JacksonConfig {
      */
     @Bean
     public ObjectMapper objectMapper() {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering JacksonConfig#objectMapper");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering JacksonConfig#objectMapper with debug context");
+        LOGGER.info(" Entering JacksonConfig#objectMapper");
+        LOGGER.debug(" Entering JacksonConfig#objectMapper with debug context");
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);

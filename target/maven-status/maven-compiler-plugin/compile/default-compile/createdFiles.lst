@@ -37,13 +37,14 @@ com/electrahub/ocpp/config/SecurityConfig.class
 com/electrahub/ocpp/service/OcppMessageLogService.class
 com/electrahub/ocpp/handler/StopTransactionHandler.class
 com/electrahub/ocpp/websocket/OcppWebSocketHandler.class
+com/electrahub/ocpp/handler/TransactionEventHandler$MeterSnapshot.class
 com/electrahub/ocpp/web/OcppConnectionController.class
 com/electrahub/ocpp/web/dto/RemoteStartRequest.class
 com/electrahub/ocpp/exception/ApiError.class
 com/electrahub/ocpp/handler/TransactionEventHandler.class
+com/electrahub/ocpp/handler/MeterValuesHandler$MeterSnapshot.class
 com/electrahub/ocpp/observability/MicrometerConfig.class
 com/electrahub/ocpp/web/RemoteCommandController.class
-com/electrahub/ocpp/integration/SessionServiceClient$1.class
 com/electrahub/ocpp/exception/OcppProtocolException.class
 com/electrahub/ocpp/web/dto/ConnectionDto.class
 com/electrahub/ocpp/domain/OcppMessageLog$OcppMessageLogBuilder.class

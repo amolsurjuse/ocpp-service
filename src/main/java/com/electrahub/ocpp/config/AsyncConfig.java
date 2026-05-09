@@ -24,8 +24,8 @@ public class AsyncConfig {
      */
     @Bean(name = "taskExecutor")
     public Executor taskExecutor() {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering AsyncConfig#taskExecutor");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering AsyncConfig#taskExecutor with debug context");
+        LOGGER.info(" Entering AsyncConfig#taskExecutor");
+        LOGGER.debug(" Entering AsyncConfig#taskExecutor with debug context");
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(5);
         executor.setMaxPoolSize(10);

@@ -32,8 +32,8 @@ public class ConnectionManager {
      * @param redisTemplate input consumed by ConnectionManager.
      */
     public ConnectionManager(RedisTemplate<String, String> redisTemplate) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering ConnectionManager#ConnectionManager");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering ConnectionManager#ConnectionManager with debug context");
+        LOGGER.info(" Entering ConnectionManager#ConnectionManager");
+        LOGGER.debug(" Entering ConnectionManager#ConnectionManager with debug context");
         this.redisTemplate = redisTemplate;
         this.nodeId = System.getenv().getOrDefault("NODE_ID", "node-" + System.identityHashCode(this));
     }

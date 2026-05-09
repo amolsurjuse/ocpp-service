@@ -27,8 +27,8 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering SecurityConfig#filterChain");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering SecurityConfig#filterChain with debug context");
+        LOGGER.info(" Entering SecurityConfig#filterChain");
+        LOGGER.debug(" Entering SecurityConfig#filterChain with debug context");
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

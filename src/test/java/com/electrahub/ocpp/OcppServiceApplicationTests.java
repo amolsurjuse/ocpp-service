@@ -20,8 +20,8 @@ class OcppServiceApplicationTests {
      */
     @Test
     void contextLoads() {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppServiceApplicationTests#contextLoads");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppServiceApplicationTests#contextLoads with debug context");
+        LOGGER.info(" Entering OcppServiceApplicationTests#contextLoads");
+        LOGGER.debug(" Entering OcppServiceApplicationTests#contextLoads with debug context");
     }
 
 }

@@ -41,8 +41,8 @@ public class OcppMessageRouter {
      * @return result produced by routeMessage.
      */
     public OcppJsonRpcMessage routeMessage(String chargePointId, OcppJsonRpcMessage message) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppMessageRouter#routeMessage");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppMessageRouter#routeMessage with debug context");
+        LOGGER.info(" Entering OcppMessageRouter#routeMessage");
+        LOGGER.debug(" Entering OcppMessageRouter#routeMessage with debug context");
         OcppMessageType type = OcppMessageType.fromValue(message.getMessageTypeId());
 
         if (type == OcppMessageType.CALL) {

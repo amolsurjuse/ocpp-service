@@ -22,8 +22,8 @@ public class OcppServiceApplication {
      * @param args input consumed by main.
      */
     public static void main(String[] args) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppServiceApplication#main");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppServiceApplication#main with debug context");
+        LOGGER.info(" Entering OcppServiceApplication#main");
+        LOGGER.debug(" Entering OcppServiceApplication#main with debug context");
         SpringApplication.run(OcppServiceApplication.class, args);
     }
 

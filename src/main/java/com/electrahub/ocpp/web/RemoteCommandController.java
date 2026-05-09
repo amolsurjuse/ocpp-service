@@ -30,8 +30,8 @@ public class RemoteCommandController {
      * @param remoteCommandService input consumed by RemoteCommandController.
      */
     public RemoteCommandController(RemoteCommandService remoteCommandService, ObjectMapper objectMapper) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering RemoteCommandController#RemoteCommandController");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering RemoteCommandController#RemoteCommandController with debug context");
+        LOGGER.info(" Entering RemoteCommandController#RemoteCommandController");
+        LOGGER.debug(" Entering RemoteCommandController#RemoteCommandController with debug context");
         this.remoteCommandService = remoteCommandService;
         this.objectMapper = objectMapper;
     }

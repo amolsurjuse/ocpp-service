@@ -27,8 +27,8 @@ public class AuthorizeHandler implements OcppMessageHandler {
      * @param sessionServiceClient input consumed by AuthorizeHandler.
      */
     public AuthorizeHandler(SessionServiceClient sessionServiceClient) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering AuthorizeHandler#AuthorizeHandler");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering AuthorizeHandler#AuthorizeHandler with debug context");
+        LOGGER.info(" Entering AuthorizeHandler#AuthorizeHandler");
+        LOGGER.debug(" Entering AuthorizeHandler#AuthorizeHandler with debug context");
         this.sessionServiceClient = sessionServiceClient;
     }
 

@@ -44,8 +44,8 @@ public class OcppStatsController {
              * @return result produced by RequestParam.
              */
             @RequestParam(required = false) String chargePointId) {
-                LOGGER.info("CODEx_ENTRY_LOG: Entering OcppStatsController#RequestParam");
-                LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppStatsController#RequestParam with debug context");
+                LOGGER.info(" Entering OcppStatsController#RequestParam");
+                LOGGER.debug(" Entering OcppStatsController#RequestParam with debug context");
         try {
             Map<String, Object> stats = new HashMap<>();
 

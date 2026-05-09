@@ -40,8 +40,8 @@ public class HeartbeatMonitorService {
      */
     @Scheduled(fixedDelayString = "${ocpp.heartbeat.check-interval-seconds}000")
     public void checkHeartbeats() {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering HeartbeatMonitorService#checkHeartbeats");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering HeartbeatMonitorService#checkHeartbeats with debug context");
+        LOGGER.info(" Entering HeartbeatMonitorService#checkHeartbeats");
+        LOGGER.debug(" Entering HeartbeatMonitorService#checkHeartbeats with debug context");
         log.debug("Checking heartbeats for all connections");
 
         connectionRepository.findAllByActiveTrue().forEach(connection -> {

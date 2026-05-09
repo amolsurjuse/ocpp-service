@@ -40,8 +40,8 @@ public class RemoteCommandService {
      * @param connectionManager input consumed by RemoteCommandService.
      */
     public RemoteCommandService(ConnectionManager connectionManager) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering RemoteCommandService#RemoteCommandService");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering RemoteCommandService#RemoteCommandService with debug context");
+        LOGGER.info(" Entering RemoteCommandService#RemoteCommandService");
+        LOGGER.debug(" Entering RemoteCommandService#RemoteCommandService with debug context");
         this.connectionManager = connectionManager;
     }
 

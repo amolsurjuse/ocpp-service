@@ -49,8 +49,8 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppWebSocketHandler#afterConnectionEstablished");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppWebSocketHandler#afterConnectionEstablished with debug context");
+        LOGGER.info(" Entering OcppWebSocketHandler#afterConnectionEstablished");
+        LOGGER.debug(" Entering OcppWebSocketHandler#afterConnectionEstablished with debug context");
         String chargePointId = extractChargePointId(session);
         log.info("WebSocket connection established for charge point: {}", chargePointId);
 

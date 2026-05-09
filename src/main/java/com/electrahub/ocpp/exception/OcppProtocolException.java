@@ -15,8 +15,8 @@ public class OcppProtocolException extends RuntimeException {
      */
     public OcppProtocolException(String message) {
         super(message);
-        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppProtocolException#OcppProtocolException");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppProtocolException#OcppProtocolException with debug context");
+        LOGGER.info(" Entering OcppProtocolException#OcppProtocolException");
+        LOGGER.debug(" Entering OcppProtocolException#OcppProtocolException with debug context");
     }
 
     /**

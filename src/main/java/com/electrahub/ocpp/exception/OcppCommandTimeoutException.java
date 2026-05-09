@@ -15,8 +15,8 @@ public class OcppCommandTimeoutException extends RuntimeException {
      */
     public OcppCommandTimeoutException(String message) {
         super(message);
-        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppCommandTimeoutException#OcppCommandTimeoutException");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppCommandTimeoutException#OcppCommandTimeoutException with debug context");
+        LOGGER.info(" Entering OcppCommandTimeoutException#OcppCommandTimeoutException");
+        LOGGER.debug(" Entering OcppCommandTimeoutException#OcppCommandTimeoutException with debug context");
     }
 
     /**
