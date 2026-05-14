@@ -15,8 +15,8 @@ public class ChargePointNotConnectedException extends RuntimeException {
      */
     public ChargePointNotConnectedException(String message) {
         super(message);
-        LOGGER.info("CODEx_ENTRY_LOG: Entering ChargePointNotConnectedException#ChargePointNotConnectedException");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering ChargePointNotConnectedException#ChargePointNotConnectedException with debug context");
+        LOGGER.info(" Entering ChargePointNotConnectedException#ChargePointNotConnectedException");
+        LOGGER.debug(" Entering ChargePointNotConnectedException#ChargePointNotConnectedException with debug context");
     }
 
     /**

@@ -28,8 +28,8 @@ public class StationServiceClient {
              * @return result produced by Value.
              */
             @Value("${integration.station-service.base-url}") String baseUrl) {
-                LOGGER.info("CODEx_ENTRY_LOG: Entering StationServiceClient#Value");
-                LOGGER.debug("CODEx_ENTRY_LOG: Entering StationServiceClient#Value with debug context");
+                LOGGER.info(" Entering StationServiceClient#Value");
+                LOGGER.debug(" Entering StationServiceClient#Value with debug context");
         this.baseUrl = baseUrl;
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }

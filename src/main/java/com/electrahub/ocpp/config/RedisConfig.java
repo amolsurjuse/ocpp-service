@@ -25,8 +25,8 @@ public class RedisConfig {
     @Bean
     @Primary
     public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory connectionFactory) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering RedisConfig#redisTemplate");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering RedisConfig#redisTemplate with debug context");
+        LOGGER.info(" Entering RedisConfig#redisTemplate");
+        LOGGER.debug(" Entering RedisConfig#redisTemplate with debug context");
         RedisTemplate<String, String> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 

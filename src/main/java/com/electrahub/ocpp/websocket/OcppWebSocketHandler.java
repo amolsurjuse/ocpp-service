@@ -7,6 +7,7 @@ import com.electrahub.ocpp.repository.OcppConnectionRepository;
 import com.electrahub.ocpp.service.OcppMessageLogService;
 import com.electrahub.ocpp.service.OcppMessageRouter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -48,8 +49,8 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppWebSocketHandler#afterConnectionEstablished");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppWebSocketHandler#afterConnectionEstablished with debug context");
+        LOGGER.info(" Entering OcppWebSocketHandler#afterConnectionEstablished");
+        LOGGER.debug(" Entering OcppWebSocketHandler#afterConnectionEstablished with debug context");
         String chargePointId = extractChargePointId(session);
         log.info("WebSocket connection established for charge point: {}", chargePointId);
 
@@ -63,8 +64,12 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
             .active(true)
             .build();
 
-        connectionRepository.save(connection);
-        log.debug("Saved OCPP connection to database: {}", chargePointId);
+        try {
+            connectionRepository.save(connection);
+            log.debug("Saved OCPP connection to database: {}", chargePointId);
+        } catch (DataAccessException ex) {
+            log.warn("Unable to persist OCPP connection audit row for {}: {}", chargePointId, ex.getMessage());
+        }
     }
 
     /**
@@ -88,7 +93,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
 
             if (response != null) {
                 String responseJson = response.toJson();
-                session.sendMessage(new TextMessage(responseJson));
+                connectionManager.sendMessage(session, responseJson);
                 log.debug("Sent response to {}: {}", chargePointId, responseJson);
             }
         } catch (Exception e) {
@@ -99,7 +104,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
                 "Failed to process message",
                 null
             );
-            session.sendMessage(new TextMessage(errorResponse.toJson()));
+            connectionManager.sendMessage(session, errorResponse.toJson());
         }
     }
 
@@ -118,12 +123,16 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
 
         connectionManager.removeConnection(chargePointId);
 
-        connectionRepository.findByChargePointId(chargePointId).ifPresent(connection -> {
-            connection.setDisconnectedAt(Instant.now());
-            connection.setActive(false);
-            connectionRepository.save(connection);
-            log.debug("Updated OCPP connection in database: {}", chargePointId);
-        });
+        try {
+            connectionRepository.findByChargePointId(chargePointId).ifPresent(connection -> {
+                connection.setDisconnectedAt(Instant.now());
+                connection.setActive(false);
+                connectionRepository.save(connection);
+                log.debug("Updated OCPP connection in database: {}", chargePointId);
+            });
+        } catch (DataAccessException ex) {
+            log.warn("Unable to persist OCPP disconnect audit row for {}: {}", chargePointId, ex.getMessage());
+        }
     }
 
     /**

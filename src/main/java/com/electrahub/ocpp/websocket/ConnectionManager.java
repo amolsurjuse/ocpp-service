@@ -3,10 +3,13 @@ package com.electrahub.ocpp.websocket;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,8 +32,8 @@ public class ConnectionManager {
      * @param redisTemplate input consumed by ConnectionManager.
      */
     public ConnectionManager(RedisTemplate<String, String> redisTemplate) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering ConnectionManager#ConnectionManager");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering ConnectionManager#ConnectionManager with debug context");
+        LOGGER.info(" Entering ConnectionManager#ConnectionManager");
+        LOGGER.debug(" Entering ConnectionManager#ConnectionManager with debug context");
         this.redisTemplate = redisTemplate;
         this.nodeId = System.getenv().getOrDefault("NODE_ID", "node-" + System.identityHashCode(this));
     }
@@ -45,8 +48,11 @@ public class ConnectionManager {
      */
     public void registerConnection(String chargePointId, WebSocketSession session) {
         localSessions.put(chargePointId, session);
-        // Store in Redis for multi-node awareness
-        redisTemplate.opsForValue().set("ocpp:connection:" + chargePointId, nodeId);
+        try {
+            redisTemplate.opsForValue().set("ocpp:connection:" + chargePointId, nodeId);
+        } catch (DataAccessException ex) {
+            log.warn("Unable to store Redis connection marker for charge point {}: {}", chargePointId, ex.getMessage());
+        }
         log.info("Registered connection for charge point: {} on node: {}", chargePointId, nodeId);
     }
 
@@ -59,7 +65,11 @@ public class ConnectionManager {
      */
     public void removeConnection(String chargePointId) {
         localSessions.remove(chargePointId);
-        redisTemplate.delete("ocpp:connection:" + chargePointId);
+        try {
+            redisTemplate.delete("ocpp:connection:" + chargePointId);
+        } catch (DataAccessException ex) {
+            log.warn("Unable to remove Redis connection marker for charge point {}: {}", chargePointId, ex.getMessage());
+        }
         log.info("Removed connection for charge point: {}", chargePointId);
     }
 
@@ -75,6 +85,23 @@ public class ConnectionManager {
         return localSessions.get(chargePointId);
     }
 
+    public void sendMessage(String chargePointId, String payload) throws IOException {
+        WebSocketSession session = localSessions.get(chargePointId);
+        if (session == null || !session.isOpen()) {
+            throw new IOException("WebSocket session is not open for charge point: " + chargePointId);
+        }
+        sendMessage(session, payload);
+    }
+
+    public void sendMessage(WebSocketSession session, String payload) throws IOException {
+        synchronized (session) {
+            if (!session.isOpen()) {
+                throw new IOException("WebSocket session is not open");
+            }
+            session.sendMessage(new TextMessage(payload));
+        }
+    }
+
     /**
      * Executes is connected for `ConnectionManager`.
      *
@@ -84,7 +111,8 @@ public class ConnectionManager {
      * @return result produced by isConnected.
      */
     public boolean isConnected(String chargePointId) {
-        return localSessions.containsKey(chargePointId);
+        WebSocketSession session = localSessions.get(chargePointId);
+        return session != null && session.isOpen();
     }
 
     /**

@@ -26,8 +26,8 @@ public class DataTransferHandler implements OcppMessageHandler {
      */
     @Override
     public String getAction() {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering DataTransferHandler#getAction");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering DataTransferHandler#getAction with debug context");
+        LOGGER.info(" Entering DataTransferHandler#getAction");
+        LOGGER.debug(" Entering DataTransferHandler#getAction with debug context");
         return "DataTransfer";
     }
 

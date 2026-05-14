@@ -29,8 +29,8 @@ public class BootNotificationHandler implements OcppMessageHandler {
      * @param stationServiceClient input consumed by BootNotificationHandler.
      */
     public BootNotificationHandler(StationServiceClient stationServiceClient) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering BootNotificationHandler#BootNotificationHandler");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering BootNotificationHandler#BootNotificationHandler with debug context");
+        LOGGER.info(" Entering BootNotificationHandler#BootNotificationHandler");
+        LOGGER.debug(" Entering BootNotificationHandler#BootNotificationHandler with debug context");
         this.stationServiceClient = stationServiceClient;
     }
 
@@ -65,8 +65,12 @@ public class BootNotificationHandler implements OcppMessageHandler {
             String chargePointSerialNumber = payload.path("chargePointSerialNumber").asText("");
             String firmwareVersion = payload.path("firmwareVersion").asText("");
 
-            // Call station service to update station info
-            stationServiceClient.getStation(chargePointId);
+            try {
+                stationServiceClient.getStation(chargePointId);
+            } catch (Exception ex) {
+                log.warn("Station metadata lookup failed for {}; accepting BootNotification anyway: {}",
+                    chargePointId, ex.getMessage());
+            }
 
             ObjectNode response = objectMapper.createObjectNode();
             response.put("status", "Accepted");

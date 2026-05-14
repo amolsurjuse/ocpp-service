@@ -12,7 +12,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.socket.TextMessage;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -41,8 +40,8 @@ public class RemoteCommandService {
      * @param connectionManager input consumed by RemoteCommandService.
      */
     public RemoteCommandService(ConnectionManager connectionManager) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering RemoteCommandService#RemoteCommandService");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering RemoteCommandService#RemoteCommandService with debug context");
+        LOGGER.info(" Entering RemoteCommandService#RemoteCommandService");
+        LOGGER.debug(" Entering RemoteCommandService#RemoteCommandService with debug context");
         this.connectionManager = connectionManager;
     }
 
@@ -67,12 +66,11 @@ public class RemoteCommandService {
         OcppJsonRpcMessage message = OcppJsonRpcMessage.createCall(messageId, action, payload);
         String messageJson = message.toJson();
 
-        try {
-            var session = connectionManager.getSession(chargePointId);
-            session.sendMessage(new TextMessage(messageJson));
-            log.info("Sent command to {}: action={}, messageId={}", chargePointId, action, messageId);
+        pendingResponses.put(messageId, future);
 
-            pendingResponses.put(messageId, future);
+        try {
+            connectionManager.sendMessage(chargePointId, messageJson);
+            log.info("Sent command to {}: action={}, messageId={}", chargePointId, action, messageId);
 
             future.orTimeout(responseTimeoutSeconds, TimeUnit.SECONDS)
                 .exceptionally(throwable -> {

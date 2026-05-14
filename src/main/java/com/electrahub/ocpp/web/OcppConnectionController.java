@@ -45,8 +45,8 @@ public class OcppConnectionController {
              */
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-                LOGGER.info("CODEx_ENTRY_LOG: Entering OcppConnectionController#RequestParam");
-                LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppConnectionController#RequestParam with debug context");
+                LOGGER.info(" Entering OcppConnectionController#RequestParam");
+                LOGGER.debug(" Entering OcppConnectionController#RequestParam with debug context");
         Pageable pageable = PageRequest.of(page, size);
         List<OcppConnection> connections = connectionRepository.findAllByActiveTrue();
 

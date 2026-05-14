@@ -39,8 +39,8 @@ public class HeartbeatHandler implements OcppMessageHandler {
      */
     @Override
     public String getAction() {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering HeartbeatHandler#getAction");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering HeartbeatHandler#getAction with debug context");
+        LOGGER.info(" Entering HeartbeatHandler#getAction");
+        LOGGER.debug(" Entering HeartbeatHandler#getAction with debug context");
         return "Heartbeat";
     }
 

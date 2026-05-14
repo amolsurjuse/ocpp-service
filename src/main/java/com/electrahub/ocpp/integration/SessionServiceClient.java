@@ -1,8 +1,6 @@
 package com.electrahub.ocpp.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -10,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Service
@@ -17,7 +16,6 @@ import java.util.Map;
 public class SessionServiceClient {
 
     private final RestClient restClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SessionServiceClient(
             RestClient.Builder restClientBuilder,
@@ -49,12 +47,12 @@ public class SessionServiceClient {
             String timestamp,
             Integer transactionId
     ) {
-        ObjectNode payload = objectMapper.createObjectNode();
+        Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
         payload.put("connectorId", connectorId == null ? 0 : connectorId);
         payload.put("idTag", nullSafe(idTag, ""));
         payload.put("meterStart", meterStart == null ? 0 : meterStart);
-        putNullableText(payload, "timestamp", timestamp);
+        payload.put("timestamp", blankToNull(timestamp));
         payload.put("transactionId", transactionId == null ? 0 : transactionId);
 
         restClient.post()
@@ -67,9 +65,9 @@ public class SessionServiceClient {
 
     public void onStopTransaction(int transactionId, Integer meterStop, String timestamp, String reason) {
         try {
-            ObjectNode payload = objectMapper.createObjectNode();
+            Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("meterStop", meterStop == null ? 0 : meterStop);
-            putNullableText(payload, "timestamp", timestamp);
+            payload.put("timestamp", blankToNull(timestamp));
             payload.put("reason", nullSafe(reason, "Local"));
 
             restClient.post()
@@ -92,9 +90,9 @@ public class SessionServiceClient {
             BigDecimal powerW
     ) {
         try {
-            ObjectNode payload = objectMapper.createObjectNode();
+            Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("connectorId", connectorId == null ? 0 : connectorId);
-            putNullableText(payload, "timestamp", timestamp);
+            payload.put("timestamp", blankToNull(timestamp));
             payload.put("energyWh", energyWh == null ? BigDecimal.ZERO : energyWh);
             payload.put("powerW", powerW == null ? BigDecimal.ZERO : powerW);
 
@@ -118,17 +116,13 @@ public class SessionServiceClient {
             Integer transactionId
     ) {
         try {
-            ObjectNode payload = objectMapper.createObjectNode();
+            Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
             payload.put("connectorId", connectorId == null ? 0 : connectorId);
             payload.put("status", nullSafe(status, "Unavailable"));
             payload.put("errorCode", nullSafe(errorCode, "NoError"));
-            putNullableText(payload, "timestamp", timestamp);
-            if (transactionId == null) {
-                payload.putNull("transactionId");
-            } else {
-                payload.put("transactionId", transactionId);
-            }
+            payload.put("timestamp", blankToNull(timestamp));
+            payload.put("transactionId", transactionId);
 
             restClient.post()
                     .uri("/api/v1/sessions/ocpp/status-notification")
@@ -141,12 +135,11 @@ public class SessionServiceClient {
         }
     }
 
-    private void putNullableText(ObjectNode payload, String key, String value) {
+    private String blankToNull(String value) {
         if (value == null || value.isBlank()) {
-            payload.putNull(key);
-            return;
+            return null;
         }
-        payload.put(key, value);
+        return value;
     }
 
     private String nullSafe(String value, String fallback) {

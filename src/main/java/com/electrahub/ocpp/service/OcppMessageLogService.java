@@ -27,8 +27,8 @@ public class OcppMessageLogService {
      * @param messageLogRepository input consumed by OcppMessageLogService.
      */
     public OcppMessageLogService(OcppMessageLogRepository messageLogRepository) {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering OcppMessageLogService#OcppMessageLogService");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering OcppMessageLogService#OcppMessageLogService with debug context");
+        LOGGER.info(" Entering OcppMessageLogService#OcppMessageLogService");
+        LOGGER.debug(" Entering OcppMessageLogService#OcppMessageLogService with debug context");
         this.messageLogRepository = messageLogRepository;
     }
 

@@ -21,8 +21,8 @@ public class OpenApiConfig {
      */
     @Bean
     public OpenAPI openAPI() {
-        LOGGER.info("CODEx_ENTRY_LOG: Entering OpenApiConfig#openAPI");
-        LOGGER.debug("CODEx_ENTRY_LOG: Entering OpenApiConfig#openAPI with debug context");
+        LOGGER.info(" Entering OpenApiConfig#openAPI");
+        LOGGER.debug(" Entering OpenApiConfig#openAPI with debug context");
         return new OpenAPI()
             .info(new Info()
                 .title("OCPP Service API")
