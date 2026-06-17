@@ -56,15 +56,16 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
 
         connectionManager.registerConnection(chargePointId, session);
 
-        OcppConnection connection = OcppConnection.builder()
-            .id(UUID.randomUUID())
-            .chargePointId(chargePointId)
-            .nodeId(connectionManager.getNodeId())
-            .connectedAt(Instant.now())
-            .active(true)
-            .build();
-
         try {
+            OcppConnection connection = connectionRepository.findByChargePointId(chargePointId)
+                .orElseGet(() -> OcppConnection.builder()
+                    .id(UUID.randomUUID())
+                    .chargePointId(chargePointId)
+                    .build());
+            connection.setNodeId(connectionManager.getNodeId());
+            connection.setConnectedAt(Instant.now());
+            connection.setDisconnectedAt(null);
+            connection.setActive(true);
             connectionRepository.save(connection);
             log.debug("Saved OCPP connection to database: {}", chargePointId);
         } catch (DataAccessException ex) {
@@ -89,6 +90,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
 
         try {
             OcppJsonRpcMessage ocppMessage = OcppJsonRpcMessage.parse(payload);
+            updateProtocolFromMessage(chargePointId, ocppMessage);
             OcppJsonRpcMessage response = messageRouter.routeMessage(chargePointId, ocppMessage);
 
             if (response != null) {
@@ -170,6 +172,22 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
             return path.substring(lastSlash + 1);
         }
         return "unknown";
+    }
+
+    private void updateProtocolFromMessage(String chargePointId, OcppJsonRpcMessage message) {
+        if (!"BootNotification".equals(message.getAction()) || message.getPayload() == null) {
+            return;
+        }
+        String protocol = message.getPayload().has("chargingStation") ? "OCPP201" : "OCPP16J";
+        connectionManager.setProtocol(chargePointId, protocol);
+        try {
+            connectionRepository.findByChargePointIdAndActiveTrue(chargePointId).ifPresent(connection -> {
+                connection.setOcppProtocol(protocol);
+                connectionRepository.save(connection);
+            });
+        } catch (DataAccessException ex) {
+            log.warn("Unable to persist OCPP protocol {} for {}: {}", protocol, chargePointId, ex.getMessage());
+        }
     }
 
 }

@@ -20,6 +20,7 @@ public class ConnectionManager {
 
 
     private final ConcurrentHashMap<String, WebSocketSession> localSessions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> localProtocols = new ConcurrentHashMap<>();
     private final RedisTemplate<String, String> redisTemplate;
     private final String nodeId;
 
@@ -65,6 +66,7 @@ public class ConnectionManager {
      */
     public void removeConnection(String chargePointId) {
         localSessions.remove(chargePointId);
+        localProtocols.remove(chargePointId);
         try {
             redisTemplate.delete("ocpp:connection:" + chargePointId);
         } catch (DataAccessException ex) {
@@ -113,6 +115,17 @@ public class ConnectionManager {
     public boolean isConnected(String chargePointId) {
         WebSocketSession session = localSessions.get(chargePointId);
         return session != null && session.isOpen();
+    }
+
+    public void setProtocol(String chargePointId, String protocol) {
+        if (chargePointId == null || protocol == null || protocol.isBlank()) {
+            return;
+        }
+        localProtocols.put(chargePointId, protocol);
+    }
+
+    public String getProtocol(String chargePointId) {
+        return localProtocols.getOrDefault(chargePointId, "OCPP16J");
     }
 
     /**

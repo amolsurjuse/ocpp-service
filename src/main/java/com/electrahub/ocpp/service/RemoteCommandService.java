@@ -136,6 +136,20 @@ public class RemoteCommandService {
      * @return result produced by remoteStartTransaction.
      */
     public CompletableFuture<JsonNode> remoteStartTransaction(String chargePointId, String idTag, Integer connectorId) {
+        if (isOcpp201(chargePointId)) {
+            ObjectNode idToken = objectMapper.createObjectNode();
+            idToken.put("idToken", idTag);
+            idToken.put("type", "Central");
+
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("remoteStartId", Math.abs(UUID.randomUUID().hashCode()));
+            payload.set("idToken", idToken);
+            if (connectorId != null) {
+                payload.put("evseId", connectorId);
+            }
+            return sendCommand(chargePointId, "RequestStartTransaction", payload);
+        }
+
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("idTag", idTag);
         if (connectorId != null) {
@@ -154,9 +168,19 @@ public class RemoteCommandService {
      * @return result produced by remoteStopTransaction.
      */
     public CompletableFuture<JsonNode> remoteStopTransaction(String chargePointId, Integer transactionId) {
+        if (isOcpp201(chargePointId)) {
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("transactionId", String.valueOf(transactionId));
+            return sendCommand(chargePointId, "RequestStopTransaction", payload);
+        }
+
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("transactionId", transactionId);
         return sendCommand(chargePointId, "RemoteStopTransaction", payload);
+    }
+
+    private boolean isOcpp201(String chargePointId) {
+        return "OCPP201".equalsIgnoreCase(connectionManager.getProtocol(chargePointId));
     }
 
     /**
