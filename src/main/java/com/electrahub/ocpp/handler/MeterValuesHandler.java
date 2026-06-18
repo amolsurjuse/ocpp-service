@@ -59,6 +59,7 @@ public class MeterValuesHandler implements OcppMessageHandler {
             log.info("Processing meter values for transaction: {}", transactionId);
 
             sessionServiceClient.onMeterValues(
+                    chargePointId,
                     transactionId,
                     connectorId,
                     timestamp,

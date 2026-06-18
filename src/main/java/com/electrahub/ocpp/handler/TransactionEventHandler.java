@@ -80,6 +80,7 @@ public class TransactionEventHandler implements OcppMessageHandler {
                 case "Updated" -> {
                     MeterSnapshot snapshot = extractSnapshot(payload);
                     sessionServiceClient.onMeterValues(
+                            chargePointId,
                             transactionId,
                             connectorId,
                             timestamp,

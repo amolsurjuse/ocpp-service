@@ -83,6 +83,7 @@ public class SessionServiceClient {
     }
 
     public void onMeterValues(
+            String chargePointId,
             int transactionId,
             Integer connectorId,
             String timestamp,
@@ -91,6 +92,7 @@ public class SessionServiceClient {
     ) {
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
             payload.put("connectorId", connectorId == null ? 0 : connectorId);
             payload.put("timestamp", blankToNull(timestamp));
             payload.put("energyWh", energyWh == null ? BigDecimal.ZERO : energyWh);
