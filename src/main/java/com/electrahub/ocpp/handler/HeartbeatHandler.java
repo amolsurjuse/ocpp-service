@@ -3,12 +3,14 @@ package com.electrahub.ocpp.handler;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import com.electrahub.ocpp.repository.OcppConnectionRepository;
+import com.electrahub.ocpp.domain.OcppConnection;
 import com.electrahub.ocpp.websocket.ConnectionManager;
 import com.electrahub.ocpp.service.OcppMessageHandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -58,12 +60,22 @@ public class HeartbeatHandler implements OcppMessageHandler {
         try {
             Instant now = Instant.now();
 
-            // Update last heartbeat in database
-            connectionRepository.findByChargePointId(chargePointId).ifPresent(connection -> {
+            try {
+                OcppConnection connection = connectionRepository.findByChargePointId(chargePointId)
+                        .orElseGet(() -> OcppConnection.builder()
+                                .chargePointId(chargePointId)
+                                .connectedAt(now)
+                                .build());
                 connection.setLastHeartbeatAt(now);
+                connection.setNodeId(connectionManager.getNodeId());
+                connection.setOcppProtocol(connectionManager.getProtocol(chargePointId));
+                connection.setDisconnectedAt(null);
+                connection.setActive(true);
                 connectionRepository.save(connection);
                 log.debug("Updated heartbeat for charge point: {}", chargePointId);
-            });
+            } catch (DataAccessException ex) {
+                log.warn("Unable to persist heartbeat for charge point {}: {}", chargePointId, ex.getMessage());
+            }
 
             ObjectNode response = objectMapper.createObjectNode();
             response.put("currentTime", now.toString());

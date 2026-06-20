@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -20,6 +21,7 @@ public class BootNotificationHandler implements OcppMessageHandler {
 
     private final StationServiceClient stationServiceClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final int heartbeatIntervalSeconds;
 
     /**
      * Executes boot notification handler for `BootNotificationHandler`.
@@ -28,10 +30,14 @@ public class BootNotificationHandler implements OcppMessageHandler {
      * enforces component-specific rules in `com.electrahub.ocpp.handler`.
      * @param stationServiceClient input consumed by BootNotificationHandler.
      */
-    public BootNotificationHandler(StationServiceClient stationServiceClient) {
+    public BootNotificationHandler(
+            StationServiceClient stationServiceClient,
+            @Value("${ocpp.heartbeat.interval-seconds:60}") int heartbeatIntervalSeconds
+    ) {
         LOGGER.info(" Entering BootNotificationHandler#BootNotificationHandler");
         LOGGER.debug(" Entering BootNotificationHandler#BootNotificationHandler with debug context");
         this.stationServiceClient = stationServiceClient;
+        this.heartbeatIntervalSeconds = Math.max(30, heartbeatIntervalSeconds);
     }
 
     /**
@@ -75,7 +81,7 @@ public class BootNotificationHandler implements OcppMessageHandler {
             ObjectNode response = objectMapper.createObjectNode();
             response.put("status", "Accepted");
             response.put("currentTime", Instant.now().toString());
-            response.put("interval", 900); // 15 minutes heartbeat interval
+            response.put("interval", heartbeatIntervalSeconds);
 
             log.debug("BootNotification response: status=Accepted for {}", chargePointId);
             return response;
@@ -84,7 +90,7 @@ public class BootNotificationHandler implements OcppMessageHandler {
             ObjectNode response = objectMapper.createObjectNode();
             response.put("status", "Pending");
             response.put("currentTime", Instant.now().toString());
-            response.put("interval", 900);
+            response.put("interval", heartbeatIntervalSeconds);
             return response;
         }
     }

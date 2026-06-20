@@ -59,7 +59,6 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
         try {
             OcppConnection connection = connectionRepository.findByChargePointId(chargePointId)
                 .orElseGet(() -> OcppConnection.builder()
-                    .id(UUID.randomUUID())
                     .chargePointId(chargePointId)
                     .build());
             connection.setNodeId(connectionManager.getNodeId());

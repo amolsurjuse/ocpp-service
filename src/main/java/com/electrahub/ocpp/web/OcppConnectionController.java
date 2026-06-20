@@ -43,8 +43,8 @@ public class OcppConnectionController {
              * @param size input consumed by RequestParam.
              * @return result produced by RequestParam.
              */
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "20") int size) {
                 LOGGER.info(" Entering OcppConnectionController#RequestParam");
                 LOGGER.debug(" Entering OcppConnectionController#RequestParam with debug context");
         Pageable pageable = PageRequest.of(page, size);
