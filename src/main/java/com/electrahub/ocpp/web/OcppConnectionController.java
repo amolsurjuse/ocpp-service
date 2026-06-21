@@ -52,6 +52,7 @@ public class OcppConnectionController {
 
         List<ConnectionDto> dtos = connections.stream()
             .map(this::toDto)
+            .filter(ConnectionDto::active)
             .toList();
 
         log.debug("Retrieved {} active connections", dtos.size());
@@ -70,6 +71,7 @@ public class OcppConnectionController {
     public ResponseEntity<ConnectionDto> getConnection(@PathVariable("chargePointId") String chargePointId) {
         return connectionRepository.findByChargePointIdAndActiveTrue(chargePointId)
             .map(this::toDto)
+            .filter(ConnectionDto::active)
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
@@ -83,7 +85,9 @@ public class OcppConnectionController {
      */
     @GetMapping("/count")
     public ResponseEntity<ConnectionCountDto> getConnectionCount() {
-        long activeCount = connectionRepository.countByActiveTrue();
+        long activeCount = connectionRepository.findAllByActiveTrue().stream()
+                .filter(connection -> connectionManager.isConnected(connection.getChargePointId()))
+                .count();
         log.debug("Active connections count: {}", activeCount);
         return ResponseEntity.ok(new ConnectionCountDto(activeCount, 0));
     }
@@ -97,6 +101,8 @@ public class OcppConnectionController {
      * @return result produced by toDto.
      */
     private ConnectionDto toDto(OcppConnection connection) {
+        boolean localConnected = connectionManager.isConnected(connection.getChargePointId());
+        boolean active = connection.isActive() && localConnected;
         return new ConnectionDto(
             connection.getId(),
             connection.getChargePointId(),
@@ -105,7 +111,9 @@ public class OcppConnectionController {
             connection.getConnectedAt(),
             connection.getLastHeartbeatAt(),
             connection.getDisconnectedAt(),
-            connection.isActive()
+            active,
+            connection.isActive(),
+            localConnected
         );
     }
 

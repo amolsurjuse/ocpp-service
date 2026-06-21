@@ -48,13 +48,14 @@ public class ConnectionManager {
      * @param session input consumed by registerConnection.
      */
     public void registerConnection(String chargePointId, WebSocketSession session) {
-        localSessions.put(chargePointId, session);
+        String normalizedChargePointId = normalizeChargePointId(chargePointId);
+        localSessions.put(normalizedChargePointId, session);
         try {
-            redisTemplate.opsForValue().set("ocpp:connection:" + chargePointId, nodeId);
+            redisTemplate.opsForValue().set("ocpp:connection:" + normalizedChargePointId, nodeId);
         } catch (DataAccessException ex) {
-            log.warn("Unable to store Redis connection marker for charge point {}: {}", chargePointId, ex.getMessage());
+            log.warn("Unable to store Redis connection marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
         }
-        log.info("Registered connection for charge point: {} on node: {}", chargePointId, nodeId);
+        log.info("Registered connection for charge point: {} on node: {}", normalizedChargePointId, nodeId);
     }
 
     /**
@@ -65,14 +66,15 @@ public class ConnectionManager {
      * @param chargePointId input consumed by removeConnection.
      */
     public void removeConnection(String chargePointId) {
-        localSessions.remove(chargePointId);
-        localProtocols.remove(chargePointId);
+        String normalizedChargePointId = normalizeChargePointId(chargePointId);
+        localSessions.remove(normalizedChargePointId);
+        localProtocols.remove(normalizedChargePointId);
         try {
-            redisTemplate.delete("ocpp:connection:" + chargePointId);
+            redisTemplate.delete("ocpp:connection:" + normalizedChargePointId);
         } catch (DataAccessException ex) {
-            log.warn("Unable to remove Redis connection marker for charge point {}: {}", chargePointId, ex.getMessage());
+            log.warn("Unable to remove Redis connection marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
         }
-        log.info("Removed connection for charge point: {}", chargePointId);
+        log.info("Removed connection for charge point: {}", normalizedChargePointId);
     }
 
     /**
@@ -84,13 +86,14 @@ public class ConnectionManager {
      * @return result produced by getSession.
      */
     public WebSocketSession getSession(String chargePointId) {
-        return localSessions.get(chargePointId);
+        return localSessions.get(normalizeChargePointId(chargePointId));
     }
 
     public void sendMessage(String chargePointId, String payload) throws IOException {
-        WebSocketSession session = localSessions.get(chargePointId);
+        String normalizedChargePointId = normalizeChargePointId(chargePointId);
+        WebSocketSession session = localSessions.get(normalizedChargePointId);
         if (session == null || !session.isOpen()) {
-            throw new IOException("WebSocket session is not open for charge point: " + chargePointId);
+            throw new IOException("WebSocket session is not open for charge point: " + normalizedChargePointId);
         }
         sendMessage(session, payload);
     }
@@ -113,19 +116,30 @@ public class ConnectionManager {
      * @return result produced by isConnected.
      */
     public boolean isConnected(String chargePointId) {
-        WebSocketSession session = localSessions.get(chargePointId);
-        return session != null && session.isOpen();
+        String normalizedChargePointId = normalizeChargePointId(chargePointId);
+        WebSocketSession session = localSessions.get(normalizedChargePointId);
+        boolean connected = session != null && session.isOpen();
+        if (!connected && session != null) {
+            localSessions.remove(normalizedChargePointId, session);
+            localProtocols.remove(normalizedChargePointId);
+            try {
+                redisTemplate.delete("ocpp:connection:" + normalizedChargePointId);
+            } catch (DataAccessException ex) {
+                log.warn("Unable to remove stale Redis marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
+            }
+        }
+        return connected;
     }
 
     public void setProtocol(String chargePointId, String protocol) {
         if (chargePointId == null || protocol == null || protocol.isBlank()) {
             return;
         }
-        localProtocols.put(chargePointId, protocol);
+        localProtocols.put(normalizeChargePointId(chargePointId), protocol);
     }
 
     public String getProtocol(String chargePointId) {
-        return localProtocols.getOrDefault(chargePointId, "OCPP16J");
+        return localProtocols.getOrDefault(normalizeChargePointId(chargePointId), "OCPP16J");
     }
 
     /**
@@ -159,6 +173,13 @@ public class ConnectionManager {
      */
     public String getNodeId() {
         return nodeId;
+    }
+
+    private String normalizeChargePointId(String chargePointId) {
+        if (chargePointId == null) {
+            return "";
+        }
+        return chargePointId.trim();
     }
 
 }

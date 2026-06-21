@@ -11,6 +11,8 @@ public record ConnectionDto(
         Instant connectedAt,
         Instant lastHeartbeatAt,
         Instant disconnectedAt,
-        boolean active
+        boolean active,
+        boolean databaseActive,
+        boolean localConnected
 ) {
 }
