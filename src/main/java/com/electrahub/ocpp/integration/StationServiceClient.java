@@ -45,11 +45,11 @@ public class StationServiceClient {
     public JsonNode getStation(String chargePointId) {
         try {
             return restClient.get()
-                .uri("/api/v1/stations/{chargePointId}", chargePointId)
+                .uri("/api/v1/stations/charge-point/{chargePointId}", chargePointId)
                 .retrieve()
                 .body(JsonNode.class);
         } catch (Exception e) {
-            log.error("Error fetching station: {}", e.getMessage(), e);
+            log.warn("Station metadata lookup failed for {}: {}", chargePointId, e.getMessage());
             throw new RuntimeException("Failed to fetch station: " + chargePointId, e);
         }
     }
