@@ -15,19 +15,24 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @Slf4j
 public class OcppWebSocketHandler extends TextWebSocketHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(OcppWebSocketHandler.class);
+    private static final Duration ACTIVITY_PERSIST_INTERVAL = Duration.ofSeconds(15);
 
 
     private final ConnectionManager connectionManager;
     private final OcppMessageRouter messageRouter;
     private final OcppConnectionRepository connectionRepository;
     private final OcppMessageLogService messageLogService;
+    private final Map<String, Instant> lastActivityPersistedAt = new ConcurrentHashMap<>();
 
     public OcppWebSocketHandler(
             ConnectionManager connectionManager,
@@ -64,6 +69,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
             connection.setNodeId(connectionManager.getNodeId());
             connection.setConnectedAt(Instant.now());
             connection.setLastHeartbeatAt(Instant.now());
+            connection.setLastSeenAt(Instant.now());
             connection.setDisconnectedAt(null);
             connection.setActive(true);
             connectionRepository.save(connection);
@@ -131,6 +137,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
                 connection.setDisconnectedAt(Instant.now());
                 connection.setActive(false);
                 connectionRepository.save(connection);
+                lastActivityPersistedAt.remove(chargePointId);
                 log.debug("Updated OCPP connection in database: {}", chargePointId);
             });
         } catch (DataAccessException ex) {
@@ -192,20 +199,31 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void touchConnectionActivity(String chargePointId, WebSocketSession session) {
-        if (!connectionManager.isConnected(chargePointId)) {
+        boolean routeMissing = !connectionManager.isConnected(chargePointId);
+        if (routeMissing) {
             connectionManager.registerConnection(chargePointId, session);
+        }
+        Instant now = Instant.now();
+        if (!routeMissing && !shouldPersistActivity(chargePointId, now)) {
+            return;
         }
         try {
             connectionRepository.findByChargePointId(chargePointId).ifPresent(connection -> {
                 connection.setNodeId(connectionManager.getNodeId());
-                connection.setLastHeartbeatAt(Instant.now());
+                connection.setLastSeenAt(now);
                 connection.setDisconnectedAt(null);
                 connection.setActive(true);
                 connectionRepository.save(connection);
+                lastActivityPersistedAt.put(chargePointId, now);
             });
         } catch (DataAccessException ex) {
             log.warn("Unable to persist OCPP connection activity for {}: {}", chargePointId, ex.getMessage());
         }
+    }
+
+    private boolean shouldPersistActivity(String chargePointId, Instant now) {
+        Instant previous = lastActivityPersistedAt.get(chargePointId);
+        return previous == null || previous.plus(ACTIVITY_PERSIST_INTERVAL).isBefore(now);
     }
 
 }

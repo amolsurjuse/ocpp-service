@@ -44,14 +44,15 @@ public class HeartbeatMonitorService {
         LOGGER.debug(" Entering HeartbeatMonitorService#checkHeartbeats with debug context");
         log.debug("Checking heartbeats for all connections");
 
+        Instant timeoutThreshold = Instant.now().minus(heartbeatTimeoutSeconds, ChronoUnit.SECONDS);
         connectionRepository.findAllByActiveTrue().forEach(connection -> {
-            if (connection.getLastHeartbeatAt() != null) {
-                Instant timeoutThreshold = Instant.now().minus(heartbeatTimeoutSeconds, ChronoUnit.SECONDS);
+            Instant lastSeen = connection.getLastSeenAt() == null
+                    ? connection.getLastHeartbeatAt()
+                    : connection.getLastSeenAt();
 
-                if (connection.getLastHeartbeatAt().isBefore(timeoutThreshold)) {
-                    log.warn("Heartbeat timeout for charge point: {}", connection.getChargePointId());
-                    markConnectionAsOffline(connection);
-                }
+            if (lastSeen != null && lastSeen.isBefore(timeoutThreshold)) {
+                log.warn("OCPP activity timeout for charge point: {}", connection.getChargePointId());
+                markConnectionAsOffline(connection);
             }
         });
     }

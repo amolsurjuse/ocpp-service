@@ -109,6 +109,7 @@ public class OcppConnectionController {
             connection.getOcppProtocol(),
             connection.getConnectedAt(),
             connection.getLastHeartbeatAt(),
+            connection.getLastSeenAt(),
             connection.getDisconnectedAt(),
             active,
             connection.isActive(),

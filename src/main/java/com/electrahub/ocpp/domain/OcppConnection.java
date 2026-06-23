@@ -47,6 +47,9 @@ public class OcppConnection {
     private Instant lastHeartbeatAt;
 
     @Column
+    private Instant lastSeenAt;
+
+    @Column
     private Instant disconnectedAt;
 
     @Column(nullable = false)

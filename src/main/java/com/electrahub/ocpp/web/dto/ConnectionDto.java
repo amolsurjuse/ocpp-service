@@ -10,6 +10,7 @@ public record ConnectionDto(
         String ocppProtocol,
         Instant connectedAt,
         Instant lastHeartbeatAt,
+        Instant lastSeenAt,
         Instant disconnectedAt,
         boolean active,
         boolean databaseActive,

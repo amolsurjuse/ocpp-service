@@ -67,6 +67,7 @@ public class HeartbeatHandler implements OcppMessageHandler {
                                 .connectedAt(now)
                                 .build());
                 connection.setLastHeartbeatAt(now);
+                connection.setLastSeenAt(now);
                 connection.setNodeId(connectionManager.getNodeId());
                 connection.setOcppProtocol(connectionManager.getProtocol(chargePointId));
                 connection.setDisconnectedAt(null);
