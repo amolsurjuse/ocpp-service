@@ -63,6 +63,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
                     .build());
             connection.setNodeId(connectionManager.getNodeId());
             connection.setConnectedAt(Instant.now());
+            connection.setLastHeartbeatAt(Instant.now());
             connection.setDisconnectedAt(null);
             connection.setActive(true);
             connectionRepository.save(connection);
@@ -89,6 +90,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
 
         try {
             OcppJsonRpcMessage ocppMessage = OcppJsonRpcMessage.parse(payload);
+            touchConnectionActivity(chargePointId, session);
             updateProtocolFromMessage(chargePointId, ocppMessage);
             OcppJsonRpcMessage response = messageRouter.routeMessage(chargePointId, ocppMessage);
 
@@ -186,6 +188,23 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
             });
         } catch (DataAccessException ex) {
             log.warn("Unable to persist OCPP protocol {} for {}: {}", protocol, chargePointId, ex.getMessage());
+        }
+    }
+
+    private void touchConnectionActivity(String chargePointId, WebSocketSession session) {
+        if (!connectionManager.isConnected(chargePointId)) {
+            connectionManager.registerConnection(chargePointId, session);
+        }
+        try {
+            connectionRepository.findByChargePointId(chargePointId).ifPresent(connection -> {
+                connection.setNodeId(connectionManager.getNodeId());
+                connection.setLastHeartbeatAt(Instant.now());
+                connection.setDisconnectedAt(null);
+                connection.setActive(true);
+                connectionRepository.save(connection);
+            });
+        } catch (DataAccessException ex) {
+            log.warn("Unable to persist OCPP connection activity for {}: {}", chargePointId, ex.getMessage());
         }
     }
 
