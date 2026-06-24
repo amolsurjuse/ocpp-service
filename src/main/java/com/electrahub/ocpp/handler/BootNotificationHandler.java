@@ -2,7 +2,6 @@ package com.electrahub.ocpp.handler;
 
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
-import com.electrahub.ocpp.integration.StationServiceClient;
 import com.electrahub.ocpp.service.OcppMessageHandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -19,7 +18,6 @@ public class BootNotificationHandler implements OcppMessageHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(BootNotificationHandler.class);
 
 
-    private final StationServiceClient stationServiceClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final int heartbeatIntervalSeconds;
 
@@ -31,12 +29,10 @@ public class BootNotificationHandler implements OcppMessageHandler {
      * @param stationServiceClient input consumed by BootNotificationHandler.
      */
     public BootNotificationHandler(
-            StationServiceClient stationServiceClient,
             @Value("${ocpp.heartbeat.interval-seconds:60}") int heartbeatIntervalSeconds
     ) {
         LOGGER.info(" Entering BootNotificationHandler#BootNotificationHandler");
         LOGGER.debug(" Entering BootNotificationHandler#BootNotificationHandler with debug context");
-        this.stationServiceClient = stationServiceClient;
         this.heartbeatIntervalSeconds = Math.max(30, heartbeatIntervalSeconds);
     }
 
@@ -70,13 +66,6 @@ public class BootNotificationHandler implements OcppMessageHandler {
             String chargePointModel = payload.path("chargePointModel").asText("Unknown");
             String chargePointSerialNumber = payload.path("chargePointSerialNumber").asText("");
             String firmwareVersion = payload.path("firmwareVersion").asText("");
-
-            try {
-                stationServiceClient.getStation(chargePointId);
-            } catch (Exception ex) {
-                log.warn("Station metadata lookup failed for {}; accepting BootNotification anyway: {}",
-                    chargePointId, ex.getMessage());
-            }
 
             ObjectNode response = objectMapper.createObjectNode();
             response.put("status", "Accepted");
