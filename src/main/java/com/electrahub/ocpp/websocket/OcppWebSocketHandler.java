@@ -77,7 +77,6 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
             connection.setDisconnectedAt(null);
             connection.setActive(true);
             connectionRepository.save(connection);
-            availabilityService.markConnected(chargePointId);
             log.debug("Saved OCPP connection to database: {}", chargePointId);
         } catch (DataAccessException ex) {
             log.warn("Unable to persist OCPP connection audit row for {}: {}", chargePointId, ex.getMessage());

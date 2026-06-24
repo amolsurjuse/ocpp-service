@@ -104,19 +104,6 @@ public class StationServiceClient {
         }
     }
 
-    public void markChargePointOnline(String chargePointId) {
-        try {
-            restClient.put()
-                .uri("/api/v1/stations/charge-point/{chargePointId}/status?isOnline=true", chargePointId)
-                .retrieve()
-                .toBodilessEntity();
-
-            log.debug("Marked charge point {} online in station-service", chargePointId);
-        } catch (Exception e) {
-            log.warn("Error marking charge point online: {}", e.getMessage());
-        }
-    }
-
     /**
      * Retrieves get connector for `StationServiceClient`.
      *

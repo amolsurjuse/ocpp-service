@@ -28,13 +28,6 @@ public class ChargePointAvailabilityService {
         this.stationServiceClient = stationServiceClient;
     }
 
-    public void markConnected(String chargePointId) {
-        if (chargePointId == null || chargePointId.isBlank() || "unknown".equalsIgnoreCase(chargePointId)) {
-            return;
-        }
-        stationServiceClient.markChargePointOnline(chargePointId);
-    }
-
     public void markOffline(OcppConnection connection, String reason) {
         if (connection == null) {
             return;
