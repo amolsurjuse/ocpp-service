@@ -21,7 +21,7 @@ public class InternalServiceTokenFilter extends OncePerRequestFilter {
     private final String internalToken;
 
     public InternalServiceTokenFilter(
-            @Value("${app.security.internal-token:}") String internalToken
+            @Value("${app.security.internal-token:${APP_SECURITY_INTERNAL_TOKEN:}}") String internalToken
     ) {
         this.internalToken = internalToken == null ? "" : internalToken.trim();
     }
