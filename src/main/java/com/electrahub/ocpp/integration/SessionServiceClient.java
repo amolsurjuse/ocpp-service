@@ -1,5 +1,6 @@
 package com.electrahub.ocpp.integration;
 
+import com.electrahub.ocpp.config.InternalServiceTokenFilter;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,18 +17,22 @@ import java.util.Map;
 public class SessionServiceClient {
 
     private final RestClient restClient;
+    private final String internalToken;
 
     public SessionServiceClient(
             RestClient.Builder restClientBuilder,
-            @Value("${integration.session-service.base-url}") String baseUrl
+            @Value("${integration.session-service.base-url}") String baseUrl,
+            @Value("${app.security.internal-token:}") String internalToken
     ) {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        this.internalToken = internalToken == null ? "" : internalToken.trim();
     }
 
     public boolean authorize(String idTag) {
         try {
             JsonNode response = restClient.post()
                     .uri("/api/v1/sessions/authorize")
+                    .header(InternalServiceTokenFilter.HEADER_NAME, internalToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("idTag", idTag))
                     .retrieve()
@@ -57,6 +62,7 @@ public class SessionServiceClient {
 
         restClient.post()
                 .uri("/api/v1/sessions/ocpp/start-transaction")
+                .header(InternalServiceTokenFilter.HEADER_NAME, internalToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(payload)
                 .retrieve()
@@ -72,6 +78,7 @@ public class SessionServiceClient {
 
             restClient.post()
                     .uri("/api/v1/sessions/ocpp/stop-transaction/{transactionId}", transactionId)
+                    .header(InternalServiceTokenFilter.HEADER_NAME, internalToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(payload)
                     .retrieve()
@@ -100,6 +107,7 @@ public class SessionServiceClient {
 
             restClient.post()
                     .uri("/api/v1/sessions/ocpp/meter-values/{transactionId}", transactionId)
+                    .header(InternalServiceTokenFilter.HEADER_NAME, internalToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(payload)
                     .retrieve()
@@ -128,6 +136,7 @@ public class SessionServiceClient {
 
             restClient.post()
                     .uri("/api/v1/sessions/ocpp/status-notification")
+                    .header(InternalServiceTokenFilter.HEADER_NAME, internalToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(payload)
                     .retrieve()
