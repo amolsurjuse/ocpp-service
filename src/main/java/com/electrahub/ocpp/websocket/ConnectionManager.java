@@ -77,6 +77,23 @@ public class ConnectionManager {
         log.info("Removed connection for charge point: {}", normalizedChargePointId);
     }
 
+    public boolean removeConnection(String chargePointId, WebSocketSession session) {
+        String normalizedChargePointId = normalizeChargePointId(chargePointId);
+        boolean removed = localSessions.remove(normalizedChargePointId, session);
+        if (!removed) {
+            log.info("Skipped stale websocket close for charge point {}; a newer session is registered", normalizedChargePointId);
+            return false;
+        }
+        localProtocols.remove(normalizedChargePointId);
+        try {
+            redisTemplate.delete("ocpp:connection:" + normalizedChargePointId);
+        } catch (DataAccessException ex) {
+            log.warn("Unable to remove Redis connection marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
+        }
+        log.info("Removed current connection for charge point: {}", normalizedChargePointId);
+        return true;
+    }
+
     /**
      * Retrieves get session for `ConnectionManager`.
      *

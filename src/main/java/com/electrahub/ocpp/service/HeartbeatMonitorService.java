@@ -2,9 +2,7 @@ package com.electrahub.ocpp.service;
 
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
-import com.electrahub.ocpp.domain.OcppConnection;
 import com.electrahub.ocpp.repository.OcppConnectionRepository;
-import com.electrahub.ocpp.websocket.ConnectionManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -19,17 +17,17 @@ public class HeartbeatMonitorService {
     private static final Logger LOGGER = LoggerFactory.getLogger(HeartbeatMonitorService.class);
 
 
-    private final ConnectionManager connectionManager;
     private final OcppConnectionRepository connectionRepository;
+    private final ChargePointAvailabilityService availabilityService;
 
     @Value("${ocpp.heartbeat.timeout-seconds:120}")
     private int heartbeatTimeoutSeconds;
 
     public HeartbeatMonitorService(
-            ConnectionManager connectionManager,
-            OcppConnectionRepository connectionRepository) {
-        this.connectionManager = connectionManager;
+            OcppConnectionRepository connectionRepository,
+            ChargePointAvailabilityService availabilityService) {
         this.connectionRepository = connectionRepository;
+        this.availabilityService = availabilityService;
     }
 
     /**
@@ -52,24 +50,9 @@ public class HeartbeatMonitorService {
 
             if (lastSeen != null && lastSeen.isBefore(timeoutThreshold)) {
                 log.warn("OCPP activity timeout for charge point: {}", connection.getChargePointId());
-                markConnectionAsOffline(connection);
+                availabilityService.markOffline(connection, "OCPP_HEARTBEAT_TIMEOUT");
             }
         });
-    }
-
-    /**
-     * Executes mark connection as offline for `HeartbeatMonitorService`.
-     *
-     * <p>Detailed behavior: follows the current implementation path and
-     * enforces component-specific rules in `com.electrahub.ocpp.service`.
-     * @param connection input consumed by markConnectionAsOffline.
-     */
-    private void markConnectionAsOffline(OcppConnection connection) {
-        connection.setActive(false);
-        connection.setDisconnectedAt(Instant.now());
-        connectionRepository.save(connection);
-        connectionManager.removeConnection(connection.getChargePointId());
-        log.info("Marked connection as offline: {}", connection.getChargePointId());
     }
 
 }

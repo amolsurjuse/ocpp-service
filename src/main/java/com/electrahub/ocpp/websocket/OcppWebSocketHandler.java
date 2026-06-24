@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import com.electrahub.ocpp.domain.OcppConnection;
 import com.electrahub.ocpp.repository.OcppConnectionRepository;
+import com.electrahub.ocpp.service.ChargePointAvailabilityService;
 import com.electrahub.ocpp.service.OcppMessageLogService;
 import com.electrahub.ocpp.service.OcppMessageRouter;
 import lombok.extern.slf4j.Slf4j;
@@ -32,17 +33,20 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
     private final OcppMessageRouter messageRouter;
     private final OcppConnectionRepository connectionRepository;
     private final OcppMessageLogService messageLogService;
+    private final ChargePointAvailabilityService availabilityService;
     private final Map<String, Instant> lastActivityPersistedAt = new ConcurrentHashMap<>();
 
     public OcppWebSocketHandler(
             ConnectionManager connectionManager,
             OcppMessageRouter messageRouter,
             OcppConnectionRepository connectionRepository,
-            OcppMessageLogService messageLogService) {
+            OcppMessageLogService messageLogService,
+            ChargePointAvailabilityService availabilityService) {
         this.connectionManager = connectionManager;
         this.messageRouter = messageRouter;
         this.connectionRepository = connectionRepository;
         this.messageLogService = messageLogService;
+        this.availabilityService = availabilityService;
     }
 
     /**
@@ -73,6 +77,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
             connection.setDisconnectedAt(null);
             connection.setActive(true);
             connectionRepository.save(connection);
+            availabilityService.markConnected(chargePointId);
             log.debug("Saved OCPP connection to database: {}", chargePointId);
         } catch (DataAccessException ex) {
             log.warn("Unable to persist OCPP connection audit row for {}: {}", chargePointId, ex.getMessage());
@@ -130,19 +135,10 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
         String chargePointId = extractChargePointId(session);
         log.info("WebSocket connection closed for charge point: {} with status: {}", chargePointId, status);
 
-        connectionManager.removeConnection(chargePointId);
-
-        try {
-            connectionRepository.findByChargePointId(chargePointId).ifPresent(connection -> {
-                connection.setDisconnectedAt(Instant.now());
-                connection.setActive(false);
-                connectionRepository.save(connection);
-                lastActivityPersistedAt.remove(chargePointId);
-                log.debug("Updated OCPP connection in database: {}", chargePointId);
-            });
-        } catch (DataAccessException ex) {
-            log.warn("Unable to persist OCPP disconnect audit row for {}: {}", chargePointId, ex.getMessage());
+        if (connectionManager.removeConnection(chargePointId, session)) {
+            availabilityService.markOffline(chargePointId, "OCPP_WEBSOCKET_DISCONNECTED", false);
         }
+        lastActivityPersistedAt.remove(chargePointId);
     }
 
     /**

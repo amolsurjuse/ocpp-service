@@ -64,19 +64,56 @@ public class StationServiceClient {
      * @param status input consumed by updateConnectorStatus.
      */
     public void updateConnectorStatus(String chargePointId, int connectorId, String status) {
+        updateConnectorStatus(chargePointId, connectorId, status, "OCPP_STATUS_NOTIFICATION");
+    }
+
+    public void updateConnectorStatus(String chargePointId, int connectorId, String status, String reason) {
         try {
             restClient.post()
                 .uri("/api/v1/stations/{chargePointId}/connectors/{connectorId}/status", chargePointId, connectorId)
                 .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                 .body(new java.util.HashMap<String, String>() {{
                     put("status", status);
+                    put("reason", reason);
                 }})
                 .retrieve()
                 .toBodilessEntity();
 
-            log.debug("Updated connector status for {}/{}: {}", chargePointId, connectorId, status);
+            log.debug("Updated connector status for {}/{}: {} ({})", chargePointId, connectorId, status, reason);
         } catch (Exception e) {
             log.error("Error updating connector status: {}", e.getMessage(), e);
+        }
+    }
+
+    public void markChargePointUnavailable(String chargePointId, String reason) {
+        try {
+            restClient.post()
+                .uri("/api/v1/stations/{chargePointId}/connectors/status", chargePointId)
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .body(new java.util.HashMap<String, Object>() {{
+                    put("status", "UNAVAILABLE");
+                    put("reason", reason);
+                    put("online", false);
+                }})
+                .retrieve()
+                .toBodilessEntity();
+
+            log.info("Marked charge point {} unavailable in station-service ({})", chargePointId, reason);
+        } catch (Exception e) {
+            log.error("Error marking charge point unavailable: {}", e.getMessage(), e);
+        }
+    }
+
+    public void markChargePointOnline(String chargePointId) {
+        try {
+            restClient.put()
+                .uri("/api/v1/stations/charge-point/{chargePointId}/status?isOnline=true", chargePointId)
+                .retrieve()
+                .toBodilessEntity();
+
+            log.debug("Marked charge point {} online in station-service", chargePointId);
+        } catch (Exception e) {
+            log.warn("Error marking charge point online: {}", e.getMessage());
         }
     }
 

@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import com.electrahub.ocpp.repository.OcppConnectionRepository;
 import com.electrahub.ocpp.domain.OcppConnection;
+import com.electrahub.ocpp.service.ChargePointAvailabilityService;
 import com.electrahub.ocpp.websocket.ConnectionManager;
 import com.electrahub.ocpp.service.OcppMessageHandler;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -23,13 +24,16 @@ public class HeartbeatHandler implements OcppMessageHandler {
 
     private final ConnectionManager connectionManager;
     private final OcppConnectionRepository connectionRepository;
+    private final ChargePointAvailabilityService availabilityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public HeartbeatHandler(
             ConnectionManager connectionManager,
-            OcppConnectionRepository connectionRepository) {
+            OcppConnectionRepository connectionRepository,
+            ChargePointAvailabilityService availabilityService) {
         this.connectionManager = connectionManager;
         this.connectionRepository = connectionRepository;
+        this.availabilityService = availabilityService;
     }
 
     /**
@@ -73,6 +77,7 @@ public class HeartbeatHandler implements OcppMessageHandler {
                 connection.setDisconnectedAt(null);
                 connection.setActive(true);
                 connectionRepository.save(connection);
+                availabilityService.markConnected(chargePointId);
                 log.debug("Updated heartbeat for charge point: {}", chargePointId);
             } catch (DataAccessException ex) {
                 log.warn("Unable to persist heartbeat for charge point {}: {}", chargePointId, ex.getMessage());
