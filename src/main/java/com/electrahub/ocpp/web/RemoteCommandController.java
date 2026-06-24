@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @RestController
 @RequestMapping("/api/v1/ocpp/commands")
@@ -40,127 +42,93 @@ public class RemoteCommandController {
     public ResponseEntity<CommandResponse> remoteStart(
             @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody RemoteStartRequest request) {
-        try {
-            log.info("Remote start command for {}: idTag={}", chargePointId, request.idTag());
-            JsonNode result = remoteCommandService
-                .remoteStartTransaction(chargePointId, request.idTag(), request.connectorId())
-                .get();
-            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
-        } catch (Exception e) {
-            log.error("Error in remote start: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(new CommandResponse("error", null));
-        }
+        log.info("Remote start command for {}: idTag={}", chargePointId, request.idTag());
+        JsonNode result = waitForCommand(remoteCommandService
+                .remoteStartTransaction(chargePointId, request.idTag(), request.connectorId()));
+        return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
     }
 
     @PostMapping("/{chargePointId}/remote-stop")
     public ResponseEntity<CommandResponse> remoteStop(
             @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody RemoteStopRequest request) {
-        try {
-            log.info("Remote stop command for {}: transactionId={}", chargePointId, request.transactionId());
-            JsonNode result = remoteCommandService
-                .remoteStopTransaction(chargePointId, request.transactionId())
-                .get();
-            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
-        } catch (Exception e) {
-            log.error("Error in remote stop: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(new CommandResponse("error", null));
-        }
+        log.info("Remote stop command for {}: transactionId={}", chargePointId, request.transactionId());
+        JsonNode result = waitForCommand(remoteCommandService
+                .remoteStopTransaction(chargePointId, request.transactionId()));
+        return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
     }
 
     @PostMapping("/{chargePointId}/reset")
     public ResponseEntity<CommandResponse> reset(
             @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody ResetRequest request) {
-        try {
-            log.info("Reset command for {}: type={}", chargePointId, request.type());
-            JsonNode result = remoteCommandService
-                .reset(chargePointId, request.type())
-                .get();
-            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
-        } catch (Exception e) {
-            log.error("Error in reset: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(new CommandResponse("error", null));
-        }
+        log.info("Reset command for {}: type={}", chargePointId, request.type());
+        JsonNode result = waitForCommand(remoteCommandService.reset(chargePointId, request.type()));
+        return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
     }
 
     @PostMapping("/{chargePointId}/unlock-connector")
     public ResponseEntity<CommandResponse> unlockConnector(
             @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody UnlockConnectorRequest request) {
-        try {
-            log.info("Unlock connector command for {}: connectorId={}", chargePointId, request.connectorId());
-            JsonNode result = remoteCommandService
-                .unlockConnector(chargePointId, request.connectorId())
-                .get();
-            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
-        } catch (Exception e) {
-            log.error("Error in unlock connector: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(new CommandResponse("error", null));
-        }
+        log.info("Unlock connector command for {}: connectorId={}", chargePointId, request.connectorId());
+        JsonNode result = waitForCommand(remoteCommandService
+                .unlockConnector(chargePointId, request.connectorId()));
+        return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
     }
 
     @PostMapping("/{chargePointId}/set-charging-profile")
     public ResponseEntity<CommandResponse> setChargingProfile(
             @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody SetChargingProfileRequest request) {
-        try {
-            log.info("Set charging profile command for {}: connectorId={}", chargePointId, request.connectorId());
-            JsonNode result = remoteCommandService
-                .setChargingProfile(chargePointId, request.connectorId(), request.chargingProfile())
-                .get();
-            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
-        } catch (Exception e) {
-            log.error("Error in set charging profile: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(new CommandResponse("error", null));
-        }
+        log.info("Set charging profile command for {}: connectorId={}", chargePointId, request.connectorId());
+        JsonNode result = waitForCommand(remoteCommandService
+                .setChargingProfile(chargePointId, request.connectorId(), request.chargingProfile()));
+        return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
     }
 
     @PostMapping("/{chargePointId}/change-configuration")
     public ResponseEntity<CommandResponse> changeConfiguration(
             @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody ChangeConfigurationRequest request) {
-        try {
-            log.info("Change configuration command for {}: key={}", chargePointId, request.key());
-            JsonNode result = remoteCommandService
-                .changeConfiguration(chargePointId, request.key(), request.value())
-                .get();
-            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
-        } catch (Exception e) {
-            log.error("Error in change configuration: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(new CommandResponse("error", null));
-        }
+        log.info("Change configuration command for {}: key={}", chargePointId, request.key());
+        JsonNode result = waitForCommand(remoteCommandService
+                .changeConfiguration(chargePointId, request.key(), request.value()));
+        return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
     }
 
     @PostMapping("/{chargePointId}/get-configuration")
     public ResponseEntity<CommandResponse> getConfiguration(
             @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody GetConfigurationRequest request) {
-        try {
-            log.info("Get configuration command for {}", chargePointId);
-            JsonNode result = remoteCommandService
-                .getConfiguration(chargePointId, request.keys())
-                .get();
-            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
-        } catch (Exception e) {
-            log.error("Error in get configuration: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(new CommandResponse("error", null));
-        }
+        log.info("Get configuration command for {}", chargePointId);
+        JsonNode result = waitForCommand(remoteCommandService
+                .getConfiguration(chargePointId, request.keys()));
+        return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
     }
 
     @PostMapping("/{chargePointId}/trigger-message")
     public ResponseEntity<CommandResponse> triggerMessage(
             @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody TriggerMessageRequest request) {
+        log.info("Trigger message command for {}: message={}", chargePointId, request.requestedMessage());
+        JsonNode result = waitForCommand(remoteCommandService
+                .triggerMessage(chargePointId, request.requestedMessage()));
+        return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
+    }
+
+    private JsonNode waitForCommand(CompletableFuture<JsonNode> command) {
         try {
-            log.info("Trigger message command for {}: message={}", chargePointId, request.requestedMessage());
-            JsonNode result = remoteCommandService
-                .triggerMessage(chargePointId, request.requestedMessage())
-                .get();
-            return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
-        } catch (Exception e) {
-            log.error("Error in trigger message: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(new CommandResponse("error", null));
+            return command.get();
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for OCPP command response", ex);
+        } catch (ExecutionException ex) {
+            Throwable cause = ex.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw new IllegalStateException("OCPP command failed", cause);
         }
     }
 
