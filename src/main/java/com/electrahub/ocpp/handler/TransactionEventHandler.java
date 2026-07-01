@@ -103,7 +103,12 @@ public class TransactionEventHandler implements OcppMessageHandler {
             log.debug("TransactionEvent response sent for eventType: {}", eventType);
             return response;
         } catch (Exception e) {
-            log.error("Error handling TransactionEvent: {}", e.getMessage(), e);
+            if (SessionServiceClient.isExpectedSessionCallbackFailure(e)) {
+                log.warn("TransactionEvent callback rejected by session-service for chargePointId={} summary={}",
+                        chargePointId, SessionServiceClient.callbackFailureSummary(e));
+            } else {
+                log.error("Error handling TransactionEvent: {}", e.getMessage(), e);
+            }
             ObjectNode response = objectMapper.createObjectNode();
             return response;
         }

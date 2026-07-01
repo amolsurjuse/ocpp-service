@@ -79,7 +79,12 @@ public class StartTransactionHandler implements OcppMessageHandler {
             log.debug("StartTransaction response: transactionId={}", transactionId);
             return response;
         } catch (Exception e) {
-            log.error("Error handling StartTransaction: {}", e.getMessage(), e);
+            if (SessionServiceClient.isExpectedSessionCallbackFailure(e)) {
+                log.warn("StartTransaction rejected by session-service for chargePointId={} summary={}",
+                        chargePointId, SessionServiceClient.callbackFailureSummary(e));
+            } else {
+                log.error("Error handling StartTransaction: {}", e.getMessage(), e);
+            }
             ObjectNode idTagInfo = objectMapper.createObjectNode();
             idTagInfo.put("status", "Invalid");
             ObjectNode response = objectMapper.createObjectNode();

@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -40,7 +41,8 @@ public class SessionServiceClient {
                     .body(JsonNode.class);
             return response != null && response.path("authorized").asBoolean(false);
         } catch (Exception ex) {
-            log.warn("Authorize callback failed for idTag={}", idTag, ex);
+            log.warn("Authorize callback failed for idTag={} summary={}", idTag, callbackFailureSummary(ex));
+            log.debug("Authorize callback failure details for idTag={}", idTag, ex);
             return false;
         }
     }
@@ -85,7 +87,8 @@ public class SessionServiceClient {
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception ex) {
-            log.warn("StopTransaction callback failed for transactionId={}", transactionId, ex);
+            log.warn("StopTransaction callback failed for transactionId={} summary={}", transactionId, callbackFailureSummary(ex));
+            log.debug("StopTransaction callback failure details for transactionId={}", transactionId, ex);
             throw ex;
         }
     }
@@ -114,7 +117,13 @@ public class SessionServiceClient {
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception ex) {
-            log.warn("MeterValues callback failed for transactionId={}", transactionId, ex);
+            if (isMissingSessionCallback(ex)) {
+                log.debug("MeterValues callback ignored for unknown transactionId={} summary={}",
+                        transactionId, callbackFailureSummary(ex));
+                return;
+            }
+            log.warn("MeterValues callback failed for transactionId={} summary={}", transactionId, callbackFailureSummary(ex));
+            log.debug("MeterValues callback failure details for transactionId={}", transactionId, ex);
         }
     }
 
@@ -143,8 +152,35 @@ public class SessionServiceClient {
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception ex) {
-            log.warn("StatusNotification callback failed for chargePointId={}, connectorId={}", chargePointId, connectorId, ex);
+            log.warn("StatusNotification callback failed for chargePointId={}, connectorId={} summary={}",
+                    chargePointId, connectorId, callbackFailureSummary(ex));
+            log.debug("StatusNotification callback failure details for chargePointId={}, connectorId={}",
+                    chargePointId, connectorId, ex);
         }
+    }
+
+    public static boolean isExpectedSessionCallbackFailure(Exception ex) {
+        if (ex instanceof RestClientResponseException responseException) {
+            int status = responseException.getStatusCode().value();
+            return status == 404 || status == 409 || status == 503 || status == 504;
+        }
+        return false;
+    }
+
+    public static String callbackFailureSummary(Exception ex) {
+        if (ex instanceof RestClientResponseException responseException) {
+            String body = responseException.getResponseBodyAsString();
+            if (body.length() > 240) {
+                body = body.substring(0, 240) + "...";
+            }
+            return "status=%s body=%s".formatted(responseException.getStatusCode().value(), body);
+        }
+        return ex.getClass().getSimpleName() + ": " + ex.getMessage();
+    }
+
+    private boolean isMissingSessionCallback(Exception ex) {
+        return ex instanceof RestClientResponseException responseException
+                && responseException.getStatusCode().value() == 404;
     }
 
     private String blankToNull(String value) {
