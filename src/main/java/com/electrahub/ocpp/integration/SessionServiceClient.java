@@ -22,10 +22,11 @@ public class SessionServiceClient {
     public SessionServiceClient(
             RestClient.Builder restClientBuilder,
             @Value("${integration.session-service.base-url}") String baseUrl,
-            @Value("${app.security.internal-token:}") String internalToken
+            @Value("${app.security.internal-token:${APP_SECURITY_INTERNAL_TOKEN:}}") String internalToken
     ) {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
         this.internalToken = internalToken == null ? "" : internalToken.trim();
+        log.info("Session service client configured baseUrl={} internalTokenConfigured={}", baseUrl, !this.internalToken.isBlank());
     }
 
     public boolean authorize(String idTag) {
