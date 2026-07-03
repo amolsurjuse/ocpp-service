@@ -3,6 +3,7 @@ package com.electrahub.ocpp.websocket;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -23,6 +25,7 @@ public class ConnectionManager {
     private final ConcurrentHashMap<String, String> localProtocols = new ConcurrentHashMap<>();
     private final RedisTemplate<String, String> redisTemplate;
     private final String nodeId;
+    private final Duration connectionMarkerTtl;
 
     /**
      * Executes connection manager for `ConnectionManager`.
@@ -32,11 +35,15 @@ public class ConnectionManager {
      * @param RedisTemplate<String input consumed by ConnectionManager.
      * @param redisTemplate input consumed by ConnectionManager.
      */
-    public ConnectionManager(RedisTemplate<String, String> redisTemplate) {
+    public ConnectionManager(
+            RedisTemplate<String, String> redisTemplate,
+            @Value("${app.ocpp.redis.connection-marker-ttl-seconds:120}") long connectionMarkerTtlSeconds
+    ) {
         LOGGER.info(" Entering ConnectionManager#ConnectionManager");
         LOGGER.debug(" Entering ConnectionManager#ConnectionManager with debug context");
         this.redisTemplate = redisTemplate;
         this.nodeId = System.getenv().getOrDefault("NODE_ID", "node-" + System.identityHashCode(this));
+        this.connectionMarkerTtl = Duration.ofSeconds(Math.max(30L, connectionMarkerTtlSeconds));
     }
 
     /**
@@ -51,7 +58,7 @@ public class ConnectionManager {
         String normalizedChargePointId = normalizeChargePointId(chargePointId);
         localSessions.put(normalizedChargePointId, session);
         try {
-            redisTemplate.opsForValue().set("ocpp:connection:" + normalizedChargePointId, nodeId);
+            redisTemplate.opsForValue().set("ocpp:connection:" + normalizedChargePointId, nodeId, connectionMarkerTtl);
         } catch (DataAccessException ex) {
             log.warn("Unable to store Redis connection marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
         }
@@ -136,6 +143,9 @@ public class ConnectionManager {
         String normalizedChargePointId = normalizeChargePointId(chargePointId);
         WebSocketSession session = localSessions.get(normalizedChargePointId);
         boolean connected = session != null && session.isOpen();
+        if (connected) {
+            refreshConnectionMarker(normalizedChargePointId);
+        }
         if (!connected && session != null) {
             localSessions.remove(normalizedChargePointId, session);
             localProtocols.remove(normalizedChargePointId);
@@ -146,6 +156,14 @@ public class ConnectionManager {
             }
         }
         return connected;
+    }
+
+    private void refreshConnectionMarker(String normalizedChargePointId) {
+        try {
+            redisTemplate.expire("ocpp:connection:" + normalizedChargePointId, connectionMarkerTtl);
+        } catch (DataAccessException ex) {
+            log.warn("Unable to refresh Redis connection marker TTL for charge point {}: {}", normalizedChargePointId, ex.getMessage());
+        }
     }
 
     public void setProtocol(String chargePointId, String protocol) {
