@@ -5,3 +5,5 @@ databaseChangeLog:
       file: db/changelog/changes/002-create-ocpp-message-log.yaml
   - include:
       file: db/changelog/changes/003-create-ocpp-pending-requests.yaml
+  - include:
+      file: db/changelog/changes/004-add-ocpp-connection-last-seen.yaml

@@ -25,8 +25,9 @@ spring:
 
 ocpp:
   heartbeat:
-    timeout-seconds: 120
-    check-interval-seconds: 30
+    interval-seconds: ${OCPP_HEARTBEAT_INTERVAL_SECONDS:60}
+    timeout-seconds: ${OCPP_HEARTBEAT_TIMEOUT_SECONDS:180}
+    check-interval-seconds: ${OCPP_HEARTBEAT_CHECK_INTERVAL_SECONDS:30}
   message:
     response-timeout-seconds: 30
   websocket:

@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: add-ocpp-connection-last-seen
+      author: codex
+      changes:
+        - addColumn:
+            tableName: ocpp_connections
+            columns:
+              - column:
+                  name: last_seen_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: true
+        - sql:
+            sql: UPDATE ocpp_connections SET last_seen_at = COALESCE(last_heartbeat_at, connected_at) WHERE last_seen_at IS NULL;
+        - createIndex:
+            tableName: ocpp_connections
+            indexName: idx_ocpp_connections_last_seen
+            columns:
+              - column:
+                  name: last_seen_at
