@@ -94,7 +94,7 @@ public class TransactionEventHandler implements OcppMessageHandler {
                             transactionId,
                             snapshot.energyWh().intValue(),
                             timestamp,
-                            triggerReason
+                            resolveStoppedReason(payload, triggerReason)
                     );
                 }
             }
@@ -157,6 +157,14 @@ public class TransactionEventHandler implements OcppMessageHandler {
             }
         }
         return new MeterSnapshot(energyWh, powerW);
+    }
+
+    private String resolveStoppedReason(JsonNode payload, String triggerReason) {
+        String stoppedReason = payload.path("transactionInfo").path("stoppedReason").asText(null);
+        if (stoppedReason != null && !stoppedReason.isBlank()) {
+            return stoppedReason;
+        }
+        return triggerReason;
     }
 
     private int generateTransactionId() {
