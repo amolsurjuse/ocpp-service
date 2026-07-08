@@ -77,6 +77,17 @@ public class RemoteCommandController {
         return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
     }
 
+    @PostMapping("/{chargePointId}/change-availability")
+    public ResponseEntity<CommandResponse> changeAvailability(
+            @PathVariable("chargePointId") String chargePointId,
+            @Valid @RequestBody ChangeAvailabilityRequest request) {
+        log.info("Change availability command for {}: connectorId={} type={}",
+                chargePointId, request.connectorId(), request.type());
+        JsonNode result = waitForCommand(remoteCommandService
+                .changeAvailability(chargePointId, request.connectorId(), request.type()));
+        return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
+    }
+
     @PostMapping("/{chargePointId}/set-charging-profile")
     public ResponseEntity<CommandResponse> setChargingProfile(
             @PathVariable("chargePointId") String chargePointId,

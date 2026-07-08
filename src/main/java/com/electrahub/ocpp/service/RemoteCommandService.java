@@ -213,6 +213,24 @@ public class RemoteCommandService {
         return sendCommand(chargePointId, "UnlockConnector", payload);
     }
 
+    public CompletableFuture<JsonNode> changeAvailability(String chargePointId, Integer connectorId, String type) {
+        if (isOcpp201(chargePointId)) {
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("operationalStatus", normalizeOperationalStatus(type));
+            if (connectorId != null) {
+                ObjectNode evse = objectMapper.createObjectNode();
+                evse.put("id", connectorId);
+                payload.set("evse", evse);
+            }
+            return sendCommand(chargePointId, "ChangeAvailability", payload);
+        }
+
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("connectorId", connectorId == null ? 0 : connectorId);
+        payload.put("type", normalizeAvailabilityType(type));
+        return sendCommand(chargePointId, "ChangeAvailability", payload);
+    }
+
     /**
      * Updates set charging profile for `RemoteCommandService`.
      *
@@ -275,6 +293,14 @@ public class RemoteCommandService {
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("requestedMessage", requestedMessage);
         return sendCommand(chargePointId, "TriggerMessage", payload);
+    }
+
+    private String normalizeAvailabilityType(String type) {
+        return "INOPERATIVE".equalsIgnoreCase(type) ? "Inoperative" : "Operative";
+    }
+
+    private String normalizeOperationalStatus(String type) {
+        return "INOPERATIVE".equalsIgnoreCase(type) ? "Inoperative" : "Operative";
     }
 
 }

@@ -50,13 +50,21 @@ public class StopTransactionHandler implements OcppMessageHandler {
     public JsonNode handle(String chargePointId, JsonNode payload) {
         try {
             int transactionId = payload.path("transactionId").asInt();
+            int connectorId = payload.path("connectorId").asInt(0);
             int meterStop = payload.path("meterStop").asInt();
             String timestamp = payload.path("timestamp").asText();
             String reason = payload.path("reason").asText("Local");
 
             log.info("Stopping transaction: {}, meter: {}", transactionId, meterStop);
 
-            sessionServiceClient.onStopTransaction(transactionId, meterStop, timestamp, reason);
+            sessionServiceClient.onStopTransaction(
+                    transactionId,
+                    chargePointId,
+                    connectorId > 0 ? connectorId : null,
+                    meterStop,
+                    timestamp,
+                    reason
+            );
 
             ObjectNode idTagInfo = objectMapper.createObjectNode();
             idTagInfo.put("status", "Accepted");
