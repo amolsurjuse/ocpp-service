@@ -44,6 +44,8 @@ class TransactionEventHandlerTest {
 
         verify(sessionServiceClient).onStopTransaction(
                 915056,
+                "EH-US-CHG-0056",
+                1,
                 1201500,
                 "2026-07-07T03:11:23Z",
                 "EVDisconnected"
@@ -68,6 +70,8 @@ class TransactionEventHandlerTest {
 
         verify(sessionServiceClient).onStopTransaction(
                 915057,
+                "EH-US-CHG-0057",
+                1,
                 0,
                 "2026-07-07T03:11:23Z",
                 "RemoteStop"

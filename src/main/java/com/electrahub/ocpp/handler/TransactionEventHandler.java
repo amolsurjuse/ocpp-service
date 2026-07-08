@@ -92,6 +92,8 @@ public class TransactionEventHandler implements OcppMessageHandler {
                     MeterSnapshot snapshot = extractSnapshot(payload);
                     sessionServiceClient.onStopTransaction(
                             transactionId,
+                            chargePointId,
+                            connectorId,
                             snapshot.energyWh().intValue(),
                             timestamp,
                             resolveStoppedReason(payload, triggerReason)

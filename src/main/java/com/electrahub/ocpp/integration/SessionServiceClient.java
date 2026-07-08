@@ -73,8 +73,25 @@ public class SessionServiceClient {
     }
 
     public void onStopTransaction(int transactionId, Integer meterStop, String timestamp, String reason) {
+        onStopTransaction(transactionId, null, null, meterStop, timestamp, reason);
+    }
+
+    public void onStopTransaction(
+            int transactionId,
+            String chargePointId,
+            Integer connectorId,
+            Integer meterStop,
+            String timestamp,
+            String reason
+    ) {
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
+            if (chargePointId != null && !chargePointId.isBlank()) {
+                payload.put("chargePointId", chargePointId);
+            }
+            if (connectorId != null && connectorId > 0) {
+                payload.put("connectorId", connectorId);
+            }
             payload.put("meterStop", meterStop == null ? 0 : meterStop);
             payload.put("timestamp", blankToNull(timestamp));
             payload.put("reason", nullSafe(reason, "Local"));
