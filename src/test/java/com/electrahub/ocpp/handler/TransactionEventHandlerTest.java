@@ -77,4 +77,37 @@ class TransactionEventHandlerTest {
                 "RemoteStop"
         );
     }
+
+    @Test
+    void chargingStateChangePropagatesAwaitingUnplugIntent() throws Exception {
+        JsonNode payload = objectMapper.readTree("""
+                {
+                  "eventType": "Updated",
+                  "timestamp": "2026-07-13T20:15:25Z",
+                  "triggerReason": "ChargingStateChanged",
+                  "evse": { "id": 1 },
+                  "transactionInfo": {
+                    "transactionId": 269349,
+                    "chargingState": "SuspendedEV"
+                  },
+                  "customData": {
+                    "vendorId": "ElectraHub",
+                    "endSessionRequested": true,
+                    "errorCode": "NoError"
+                  }
+                }
+                """);
+
+        handler.handle("EH-US-CHG-0001", payload);
+
+        verify(sessionServiceClient).onStatusNotification(
+                "EH-US-CHG-0001",
+                1,
+                "SuspendedEV",
+                "NoError",
+                "2026-07-13T20:15:25Z",
+                269349,
+                true
+        );
+    }
 }

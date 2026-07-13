@@ -61,6 +61,8 @@ public class StatusNotificationHandler implements OcppMessageHandler {
             String timestamp = payload.path("timestamp").asText();
             JsonNode txNode = payload.path("transactionId");
             Integer transactionId = (txNode.isMissingNode() || txNode.isNull()) ? null : txNode.asInt();
+            boolean endSessionRequested = "EndSessionRequested".equalsIgnoreCase(payload.path("info").asText())
+                    || payload.path("customData").path("endSessionRequested").asBoolean(false);
 
             log.info("Connector status update: chargePoint={}, connector={}, status={}, errorCode={}",
                 chargePointId, connectorId, status, errorCode);
@@ -72,7 +74,8 @@ public class StatusNotificationHandler implements OcppMessageHandler {
                     status,
                     errorCode,
                     timestamp,
-                    transactionId
+                    transactionId,
+                    endSessionRequested
             );
 
             ObjectNode response = objectMapper.createObjectNode();

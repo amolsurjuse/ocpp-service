@@ -80,15 +80,29 @@ public class TransactionEventHandler implements OcppMessageHandler {
                     );
                 }
                 case "Updated" -> {
-                    MeterSnapshot snapshot = extractSnapshot(payload);
-                    sessionServiceClient.onMeterValues(
-                            chargePointId,
-                            transactionId,
-                            connectorId,
-                            timestamp,
-                            snapshot.energyWh(),
-                            snapshot.powerW()
-                    );
+                    String chargingState = transactionInfo.path("chargingState").asText("");
+                    if ("ChargingStateChanged".equalsIgnoreCase(triggerReason) && !chargingState.isBlank()) {
+                        JsonNode customData = payload.path("customData");
+                        sessionServiceClient.onStatusNotification(
+                                chargePointId,
+                                connectorId,
+                                chargingState,
+                                customData.path("errorCode").asText("NoError"),
+                                timestamp,
+                                transactionId,
+                                customData.path("endSessionRequested").asBoolean(false)
+                        );
+                    } else {
+                        MeterSnapshot snapshot = extractSnapshot(payload);
+                        sessionServiceClient.onMeterValues(
+                                chargePointId,
+                                transactionId,
+                                connectorId,
+                                timestamp,
+                                snapshot.energyWh(),
+                                snapshot.powerW()
+                        );
+                    }
                 }
                 case "Ended" -> {
                     MeterSnapshot snapshot = extractSnapshot(payload);

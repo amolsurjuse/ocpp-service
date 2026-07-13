@@ -168,7 +168,8 @@ public class SessionServiceClient {
             String status,
             String errorCode,
             String timestamp,
-            Integer transactionId
+            Integer transactionId,
+            boolean endSessionRequested
     ) {
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
@@ -178,6 +179,7 @@ public class SessionServiceClient {
             payload.put("errorCode", nullSafe(errorCode, "NoError"));
             payload.put("timestamp", blankToNull(timestamp));
             payload.put("transactionId", transactionId);
+            payload.put("endSessionRequested", endSessionRequested);
 
             restClient.post()
                     .uri("/api/v1/sessions/ocpp/status-notification")
