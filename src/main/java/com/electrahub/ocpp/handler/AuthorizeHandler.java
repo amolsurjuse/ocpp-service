@@ -55,39 +55,59 @@ public class AuthorizeHandler implements OcppMessageHandler {
      */
     @Override
     public JsonNode handle(String chargePointId, JsonNode payload) {
+        boolean ocpp201 = payload.has("idToken");
         try {
             // Support both OCPP 1.6 (idTag) and 2.0.1 (idToken)
             String idTag = payload.path("idTag").asText();
+            String idTokenType = null;
             if (idTag.isEmpty()) {
                 idTag = payload.path("idToken").path("idToken").asText();
+                idTokenType = payload.path("idToken").path("type").asText(null);
             }
+            String certificate = payload.path("certificate").asText(null);
 
             log.info("Authorizing idTag: {} for charge point: {}", idTag, chargePointId);
 
             // Call session service to authorize
-            boolean authorized = sessionServiceClient.authorize(idTag);
+            SessionServiceClient.AuthorizationResult authorization = sessionServiceClient.authorize(idTag, idTokenType, certificate);
 
-            ObjectNode idTagInfo = objectMapper.createObjectNode();
-            if (authorized) {
-                idTagInfo.put("status", "Accepted");
-            } else {
-                idTagInfo.put("status", "Invalid");
-            }
+            ObjectNode tokenInfo = objectMapper.createObjectNode();
+            tokenInfo.put("status", authorization.authorized() ? "Accepted" : normalizedStatus(authorization.status(), ocpp201));
 
             ObjectNode response = objectMapper.createObjectNode();
-            response.set("idTagInfo", idTagInfo);
+            response.set(ocpp201 ? "idTokenInfo" : "idTagInfo", tokenInfo);
+            if (ocpp201 && certificate != null && !certificate.isBlank()) {
+                response.put("certificateStatus", authorization.certificateStatus() == null ? "NoCertificateAvailable" : authorization.certificateStatus());
+            }
 
             log.debug("Authorization response: status={} for idTag: {}",
-                idTagInfo.get("status").asText(), idTag);
+                tokenInfo.get("status").asText(), idTag);
             return response;
         } catch (Exception e) {
             log.error("Error handling Authorize: {}", e.getMessage(), e);
-            ObjectNode idTagInfo = objectMapper.createObjectNode();
-            idTagInfo.put("status", "Invalid");
+            ObjectNode tokenInfo = objectMapper.createObjectNode();
+            tokenInfo.put("status", "Invalid");
             ObjectNode response = objectMapper.createObjectNode();
-            response.set("idTagInfo", idTagInfo);
+            response.set(ocpp201 ? "idTokenInfo" : "idTagInfo", tokenInfo);
+            if (ocpp201 && payload.hasNonNull("certificate")) {
+                response.put("certificateStatus", "NoCertificateAvailable");
+            }
             return response;
         }
+    }
+
+    private String normalizedStatus(String status, boolean ocpp201) {
+        if (status == null) {
+            return "Invalid";
+        }
+        return switch (status.trim().toUpperCase()) {
+            case "ACCEPTED" -> "Accepted";
+            case "BLOCKED" -> "Blocked";
+            case "EXPIRED" -> "Expired";
+            case "CONCURRENT_TX" -> "ConcurrentTx";
+            case "NO_CREDIT" -> ocpp201 ? "NoCredit" : "Invalid";
+            default -> "Invalid";
+        };
     }
 
 }

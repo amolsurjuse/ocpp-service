@@ -67,11 +67,13 @@ public class TransactionEventHandler implements OcppMessageHandler {
                     String idTag = payload.path("idToken").path("idToken").asText(
                             payload.path("idTag").asText("")
                     );
+                    String idTokenType = payload.path("idToken").path("type").asText(null);
                     int meterStart = extractSnapshot(payload).energyWh().intValue();
                     sessionServiceClient.onStartTransaction(
                             chargePointId,
                             connectorId,
                             idTag,
+                            idTokenType,
                             meterStart,
                             timestamp,
                             transactionId

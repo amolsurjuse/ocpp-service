@@ -3,6 +3,7 @@ package com.electrahub.ocpp.handler;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import com.electrahub.ocpp.service.OcppMessageHandler;
+import com.electrahub.ocpp.integration.SessionServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,6 +17,11 @@ public class DataTransferHandler implements OcppMessageHandler {
 
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final SessionServiceClient sessionServiceClient;
+
+    public DataTransferHandler(SessionServiceClient sessionServiceClient) {
+        this.sessionServiceClient = sessionServiceClient;
+    }
 
     /**
      * Retrieves get action for `DataTransferHandler`.
@@ -45,12 +51,34 @@ public class DataTransferHandler implements OcppMessageHandler {
         try {
             String vendorId = payload.path("vendorId").asText();
             String messageId = payload.path("messageId").asText();
-            JsonNode data = payload.path("data");
 
             log.info("Data transfer from {}: vendorId={}, messageId={}", chargePointId, vendorId, messageId);
 
             ObjectNode response = objectMapper.createObjectNode();
+            if (!"org.openchargealliance.iso15118pnc".equals(vendorId)) {
+                response.put("status", "UnknownVendorId");
+                return response;
+            }
+            if (!"Authorize".equals(messageId)) {
+                response.put("status", "UnknownMessageId");
+                return response;
+            }
+
+            JsonNode data = parseData(payload.path("data"));
+            String emaid = data.path("idToken").path("idToken").asText();
+            String certificate = data.path("certificate").asText(null);
+            SessionServiceClient.AuthorizationResult authorization = sessionServiceClient.authorize(emaid, "eMAID", certificate);
+
+            ObjectNode idTokenInfo = objectMapper.createObjectNode();
+            idTokenInfo.put("status", authorization.authorized() ? "Accepted" : normalizedStatus(authorization.status()));
+            ObjectNode authorizeResponse = objectMapper.createObjectNode();
+            authorizeResponse.set("idTokenInfo", idTokenInfo);
+            authorizeResponse.put("certificateStatus", authorization.certificateStatus() == null
+                    ? "NoCertificateAvailable"
+                    : authorization.certificateStatus());
+
             response.put("status", "Accepted");
+            response.put("data", objectMapper.writeValueAsString(authorizeResponse));
 
             log.debug("DataTransfer response: status=Accepted");
             return response;
@@ -60,6 +88,27 @@ public class DataTransferHandler implements OcppMessageHandler {
             response.put("status", "Rejected");
             return response;
         }
+    }
+
+    private JsonNode parseData(JsonNode data) throws Exception {
+        if (data.isTextual()) {
+            return objectMapper.readTree(data.asText());
+        }
+        return data;
+    }
+
+    private String normalizedStatus(String status) {
+        if (status == null) {
+            return "Invalid";
+        }
+        return switch (status.trim().toUpperCase()) {
+            case "ACCEPTED" -> "Accepted";
+            case "BLOCKED" -> "Blocked";
+            case "EXPIRED" -> "Expired";
+            case "CONCURRENT_TX" -> "ConcurrentTx";
+            case "NO_CREDIT" -> "NoCredit";
+            default -> "Invalid";
+        };
     }
 
 }

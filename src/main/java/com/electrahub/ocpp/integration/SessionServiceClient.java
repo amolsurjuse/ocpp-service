@@ -30,19 +30,34 @@ public class SessionServiceClient {
     }
 
     public boolean authorize(String idTag) {
+        return authorize(idTag, null, null).authorized();
+    }
+
+    public AuthorizationResult authorize(String idTag, String idTokenType, String contractCertificate) {
         try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("idTag", idTag);
+            if (idTokenType != null && !idTokenType.isBlank()) {
+                payload.put("idTokenType", idTokenType);
+            }
+            if (contractCertificate != null && !contractCertificate.isBlank()) {
+                payload.put("contractCertificate", contractCertificate);
+            }
             AuthorizationResponse response = restClient.post()
                     .uri("/api/v1/sessions/authorize")
                     .header(InternalServiceTokenFilter.HEADER_NAME, internalToken)
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("idTag", idTag))
+                    .body(payload)
                     .retrieve()
                     .body(AuthorizationResponse.class);
-            return response != null && response.authorized();
+            if (response == null) {
+                return new AuthorizationResult(false, "Invalid", "No authorization response", "NoCertificateAvailable");
+            }
+            return new AuthorizationResult(response.authorized(), response.status(), response.reason(), response.certificateStatus());
         } catch (Exception ex) {
             log.warn("Authorize callback failed for idTag={} summary={}", idTag, callbackFailureSummary(ex));
             log.debug("Authorize callback failure details for idTag={}", idTag, ex);
-            return false;
+            return new AuthorizationResult(false, "Invalid", callbackFailureSummary(ex), "NoCertificateAvailable");
         }
     }
 
@@ -50,6 +65,7 @@ public class SessionServiceClient {
             String chargePointId,
             Integer connectorId,
             String idTag,
+            String idTokenType,
             Integer meterStart,
             String timestamp,
             Integer transactionId
@@ -58,6 +74,9 @@ public class SessionServiceClient {
         payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
         payload.put("connectorId", connectorId == null ? 0 : connectorId);
         payload.put("idTag", nullSafe(idTag, ""));
+        if (idTokenType != null && !idTokenType.isBlank()) {
+            payload.put("idTokenType", idTokenType);
+        }
         payload.put("meterStart", meterStart == null ? 0 : meterStart);
         payload.put("timestamp", blankToNull(timestamp));
         payload.put("transactionId", transactionId == null ? 0 : transactionId);
@@ -213,6 +232,9 @@ public class SessionServiceClient {
         return value;
     }
 
-    private record AuthorizationResponse(boolean authorized, String status, String reason) {
+    private record AuthorizationResponse(boolean authorized, String status, String reason, String certificateStatus) {
+    }
+
+    public record AuthorizationResult(boolean authorized, String status, String reason, String certificateStatus) {
     }
 }

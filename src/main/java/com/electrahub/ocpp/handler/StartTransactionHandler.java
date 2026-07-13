@@ -64,6 +64,7 @@ public class StartTransactionHandler implements OcppMessageHandler {
                     chargePointId,
                     connectorId,
                     idTag,
+                    null,
                     meterStart,
                     timestamp,
                     transactionId

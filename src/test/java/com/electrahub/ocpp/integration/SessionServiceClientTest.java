@@ -53,6 +53,26 @@ class SessionServiceClientTest {
         assertFalse(client().authorize("RFID-UNKNOWN-001"));
     }
 
+    @Test
+    void sendsPlugAndChargeTokenTypeAndCertificateToSessionService() throws IOException {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+        startServer(exchange -> {
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            respond(exchange, 200, "{\"authorized\":true,\"status\":\"Accepted\",\"reason\":null,\"certificateStatus\":\"Accepted\"}");
+        });
+
+        SessionServiceClient.AuthorizationResult result = client().authorize(
+                "US-EHB-C12345678",
+                "eMAID",
+                "CERT-EHB-001"
+        );
+
+        assertTrue(result.authorized());
+        assertEquals("Accepted", result.certificateStatus());
+        assertTrue(requestBody.get().contains("\"idTokenType\":\"eMAID\""));
+        assertTrue(requestBody.get().contains("\"contractCertificate\":\"CERT-EHB-001\""));
+    }
+
     private SessionServiceClient client() {
         return new SessionServiceClient(
                 RestClient.builder(),
