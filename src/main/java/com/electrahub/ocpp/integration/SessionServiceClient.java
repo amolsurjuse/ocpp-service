@@ -1,7 +1,6 @@
 package com.electrahub.ocpp.integration;
 
 import com.electrahub.ocpp.config.InternalServiceTokenFilter;
-import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -32,14 +31,14 @@ public class SessionServiceClient {
 
     public boolean authorize(String idTag) {
         try {
-            JsonNode response = restClient.post()
+            AuthorizationResponse response = restClient.post()
                     .uri("/api/v1/sessions/authorize")
                     .header(InternalServiceTokenFilter.HEADER_NAME, internalToken)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("idTag", idTag))
                     .retrieve()
-                    .body(JsonNode.class);
-            return response != null && response.path("authorized").asBoolean(false);
+                    .body(AuthorizationResponse.class);
+            return response != null && response.authorized();
         } catch (Exception ex) {
             log.warn("Authorize callback failed for idTag={} summary={}", idTag, callbackFailureSummary(ex));
             log.debug("Authorize callback failure details for idTag={}", idTag, ex);
@@ -212,5 +211,8 @@ public class SessionServiceClient {
             return fallback;
         }
         return value;
+    }
+
+    private record AuthorizationResponse(boolean authorized, String status, String reason) {
     }
 }
