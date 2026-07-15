@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.util.Locale;
+
 @Service
 @Slf4j
 public class StationServiceClient {
@@ -68,21 +70,31 @@ public class StationServiceClient {
     }
 
     public void updateConnectorStatus(String chargePointId, int connectorId, String status, String reason) {
+        String stationStatus = normalizeConnectorStatus(status);
         try {
             restClient.post()
                 .uri("/api/v1/stations/{chargePointId}/connectors/{connectorId}/status", chargePointId, connectorId)
                 .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                 .body(new java.util.HashMap<String, String>() {{
-                    put("status", status);
+                    put("status", stationStatus);
                     put("reason", reason);
                 }})
                 .retrieve()
                 .toBodilessEntity();
 
-            log.debug("Updated connector status for {}/{}: {} ({})", chargePointId, connectorId, status, reason);
+            log.debug("Updated connector status for {}/{}: {} ({})", chargePointId, connectorId, stationStatus, reason);
         } catch (Exception e) {
             log.error("Error updating connector status: {}", e.getMessage(), e);
         }
+    }
+
+    static String normalizeConnectorStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return status;
+        }
+        return status.trim()
+                .replaceAll("([a-z0-9])([A-Z])", "$1_$2")
+                .toUpperCase(Locale.ROOT);
     }
 
     public void markChargePointUnavailable(String chargePointId, String reason) {

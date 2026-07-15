@@ -30,6 +30,7 @@ class StatusNotificationHandlerTest {
 
         handler.handle("EH-US-CHG-0001", payload);
 
+        verify(stationServiceClient).updateConnectorStatus("EH-US-CHG-0001", 1, "SuspendedEV");
         verify(sessionServiceClient).onStatusNotification(
                 "EH-US-CHG-0001",
                 1,
