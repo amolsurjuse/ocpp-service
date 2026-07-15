@@ -134,15 +134,23 @@ public class SessionServiceClient {
             Integer connectorId,
             String timestamp,
             BigDecimal energyWh,
-            BigDecimal powerW
+            BigDecimal powerW,
+            BigDecimal stateOfChargePercent
     ) {
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
             payload.put("connectorId", connectorId == null ? 0 : connectorId);
             payload.put("timestamp", blankToNull(timestamp));
-            payload.put("energyWh", energyWh == null ? BigDecimal.ZERO : energyWh);
-            payload.put("powerW", powerW == null ? BigDecimal.ZERO : powerW);
+            if (energyWh != null) {
+                payload.put("energyWh", energyWh);
+            }
+            if (powerW != null) {
+                payload.put("powerW", powerW);
+            }
+            if (stateOfChargePercent != null) {
+                payload.put("stateOfChargePercent", stateOfChargePercent);
+            }
 
             restClient.post()
                     .uri("/api/v1/sessions/ocpp/meter-values/{transactionId}", transactionId)

@@ -64,7 +64,8 @@ public class MeterValuesHandler implements OcppMessageHandler {
                     connectorId,
                     timestamp,
                     snapshot.energyWh(),
-                    snapshot.powerW()
+                    snapshot.powerW(),
+                    snapshot.stateOfChargePercent()
             );
 
             ObjectNode response = objectMapper.createObjectNode();
@@ -96,6 +97,7 @@ public class MeterValuesHandler implements OcppMessageHandler {
     private MeterSnapshot extractSnapshot(JsonNode payload) {
         BigDecimal energyWh = null;
         BigDecimal powerW = null;
+        BigDecimal stateOfChargePercent = null;
         JsonNode meterValues = payload.path("meterValue");
 
         if (meterValues.isArray() && !meterValues.isEmpty()) {
@@ -123,22 +125,17 @@ public class MeterValuesHandler implements OcppMessageHandler {
                         energyWh = numericValue;
                     } else if (powerW == null && measurand.equalsIgnoreCase("Power.Active.Import")) {
                         powerW = numericValue;
+                    } else if (stateOfChargePercent == null && measurand.equalsIgnoreCase("SoC")) {
+                        stateOfChargePercent = numericValue;
                     }
                 }
             }
         }
 
-        if (energyWh == null) {
-            energyWh = BigDecimal.ZERO;
-        }
-        if (powerW == null) {
-            powerW = BigDecimal.ZERO;
-        }
-
-        return new MeterSnapshot(energyWh, powerW);
+        return new MeterSnapshot(energyWh, powerW, stateOfChargePercent);
     }
 
-    private record MeterSnapshot(BigDecimal energyWh, BigDecimal powerW) {
+    private record MeterSnapshot(BigDecimal energyWh, BigDecimal powerW, BigDecimal stateOfChargePercent) {
     }
 
 }

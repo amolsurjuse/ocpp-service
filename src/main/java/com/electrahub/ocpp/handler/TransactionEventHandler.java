@@ -68,7 +68,7 @@ public class TransactionEventHandler implements OcppMessageHandler {
                             payload.path("idTag").asText("")
                     );
                     String idTokenType = payload.path("idToken").path("type").asText(null);
-                    int meterStart = extractSnapshot(payload).energyWh().intValue();
+                    int meterStart = integerValueOrZero(extractSnapshot(payload).energyWh());
                     sessionServiceClient.onStartTransaction(
                             chargePointId,
                             connectorId,
@@ -100,7 +100,8 @@ public class TransactionEventHandler implements OcppMessageHandler {
                                 connectorId,
                                 timestamp,
                                 snapshot.energyWh(),
-                                snapshot.powerW()
+                                snapshot.powerW(),
+                                snapshot.stateOfChargePercent()
                         );
                     }
                 }
@@ -110,7 +111,7 @@ public class TransactionEventHandler implements OcppMessageHandler {
                             transactionId,
                             chargePointId,
                             connectorId,
-                            snapshot.energyWh().intValue(),
+                            integerValueOrZero(snapshot.energyWh()),
                             timestamp,
                             resolveStoppedReason(payload, triggerReason)
                     );
@@ -143,8 +144,9 @@ public class TransactionEventHandler implements OcppMessageHandler {
     }
 
     private MeterSnapshot extractSnapshot(JsonNode payload) {
-        BigDecimal energyWh = BigDecimal.ZERO;
-        BigDecimal powerW = BigDecimal.ZERO;
+        BigDecimal energyWh = null;
+        BigDecimal powerW = null;
+        BigDecimal stateOfChargePercent = null;
         JsonNode meterValues = payload.path("meterValue");
 
         if (meterValues.isArray() && !meterValues.isEmpty()) {
@@ -170,11 +172,17 @@ public class TransactionEventHandler implements OcppMessageHandler {
                         energyWh = numeric;
                     } else if (measurand.equalsIgnoreCase("Power.Active.Import")) {
                         powerW = numeric;
+                    } else if (measurand.equalsIgnoreCase("SoC")) {
+                        stateOfChargePercent = numeric;
                     }
                 }
             }
         }
-        return new MeterSnapshot(energyWh, powerW);
+        return new MeterSnapshot(energyWh, powerW, stateOfChargePercent);
+    }
+
+    private int integerValueOrZero(BigDecimal value) {
+        return value == null ? 0 : value.intValue();
     }
 
     private String resolveStoppedReason(JsonNode payload, String triggerReason) {
@@ -190,7 +198,7 @@ public class TransactionEventHandler implements OcppMessageHandler {
         return (int) (nowMillis % Integer.MAX_VALUE);
     }
 
-    private record MeterSnapshot(BigDecimal energyWh, BigDecimal powerW) {
+    private record MeterSnapshot(BigDecimal energyWh, BigDecimal powerW, BigDecimal stateOfChargePercent) {
     }
 
 }

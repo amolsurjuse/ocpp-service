@@ -110,4 +110,37 @@ class TransactionEventHandlerTest {
                 true
         );
     }
+
+    @Test
+    void periodicEnergyTelemetryDoesNotInventMissingPowerOrStateOfCharge() throws Exception {
+        JsonNode payload = objectMapper.readTree("""
+                {
+                  "eventType": "Updated",
+                  "timestamp": "2026-07-15T21:18:50Z",
+                  "triggerReason": "MeterValuePeriodic",
+                  "evse": { "id": 1 },
+                  "transactionInfo": { "transactionId": 320101 },
+                  "meterValue": [{
+                    "timestamp": "2026-07-15T21:18:50Z",
+                    "sampledValue": [{
+                      "value": 1200122,
+                      "measurand": "Energy.Active.Import.Register",
+                      "unitOfMeasure": { "unit": "Wh" }
+                    }]
+                  }]
+                }
+                """);
+
+        handler.handle("EH-US-CHG-0201", payload);
+
+        verify(sessionServiceClient).onMeterValues(
+                "EH-US-CHG-0201",
+                320101,
+                1,
+                "2026-07-15T21:18:50Z",
+                new java.math.BigDecimal("1200122"),
+                null,
+                null
+        );
+    }
 }
