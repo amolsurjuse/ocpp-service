@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
 
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+
 @ControllerAdvice
 @Slf4j
 public class RestExceptionHandler {
@@ -52,6 +55,28 @@ public class RestExceptionHandler {
             request.getDescription(false).replace("uri=", "")
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(apiError);
+    }
+
+    @ExceptionHandler({CompletionException.class, ExecutionException.class})
+    public ResponseEntity<ApiError> handleAsyncCommandFailure(Exception ex, WebRequest request) {
+        Throwable cause = ex;
+        while ((cause instanceof CompletionException || cause instanceof ExecutionException)
+                && cause.getCause() != null) {
+            cause = cause.getCause();
+        }
+        if (cause instanceof ChargePointNotConnectedException notConnected) {
+            return handleChargePointNotConnected(notConnected, request);
+        }
+        if (cause instanceof OcppCommandTimeoutException timeout) {
+            return handleOcppCommandTimeout(timeout, request);
+        }
+        if (cause instanceof OcppProtocolException protocol) {
+            return handleOcppProtocolError(protocol, request);
+        }
+        if (cause instanceof Exception nested) {
+            return handleGeneralException(nested, request);
+        }
+        return handleGeneralException(ex, request);
     }
 
     @ExceptionHandler(Exception.class)

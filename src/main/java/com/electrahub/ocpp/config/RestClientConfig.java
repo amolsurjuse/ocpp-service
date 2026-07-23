@@ -3,9 +3,13 @@ package com.electrahub.ocpp.config;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+
+import java.time.Duration;
 
 @Configuration
 public class RestClientConfig {
@@ -20,10 +24,17 @@ public class RestClientConfig {
      * @return result produced by restClientBuilder.
      */
     @Bean
-    public RestClient.Builder restClientBuilder() {
+    public RestClient.Builder restClientBuilder(
+            @Value("${integration.http.connect-timeout-ms:1000}") int connectTimeoutMs,
+            @Value("${integration.http.read-timeout-ms:5000}") int readTimeoutMs
+    ) {
         LOGGER.info(" Entering RestClientConfig#restClientBuilder");
         LOGGER.debug(" Entering RestClientConfig#restClientBuilder with debug context");
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofMillis(Math.max(100, connectTimeoutMs)));
+        requestFactory.setReadTimeout(Duration.ofMillis(Math.max(100, readTimeoutMs)));
         return RestClient.builder()
+                .requestFactory(requestFactory)
                 .requestInterceptor((request, body, execution) -> {
                     addTraceHeaders(request.getHeaders());
                     return execution.execute(request, body);

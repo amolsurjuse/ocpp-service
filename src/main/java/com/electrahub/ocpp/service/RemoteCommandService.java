@@ -8,6 +8,9 @@ import com.electrahub.ocpp.websocket.OcppJsonRpcMessage;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -25,6 +28,7 @@ public class RemoteCommandService {
 
 
     private final ConnectionManager connectionManager;
+    private final MeterRegistry meterRegistry;
     private final ConcurrentHashMap<String, CompletableFuture<JsonNode>> pendingResponses = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -38,10 +42,14 @@ public class RemoteCommandService {
      * enforces component-specific rules in `com.electrahub.ocpp.service`.
      * @param connectionManager input consumed by RemoteCommandService.
      */
-    public RemoteCommandService(ConnectionManager connectionManager) {
+    public RemoteCommandService(ConnectionManager connectionManager, MeterRegistry meterRegistry) {
         LOGGER.info(" Entering RemoteCommandService#RemoteCommandService");
         LOGGER.debug(" Entering RemoteCommandService#RemoteCommandService with debug context");
         this.connectionManager = connectionManager;
+        this.meterRegistry = meterRegistry;
+        Gauge.builder("electrahub.ocpp.remote_command.pending", pendingResponses, responses -> responses.size())
+                .description("OCPP commands awaiting a charge-point response")
+                .register(meterRegistry);
     }
 
     /**
@@ -61,27 +69,32 @@ public class RemoteCommandService {
 
         String messageId = UUID.randomUUID().toString();
         CompletableFuture<JsonNode> future = new CompletableFuture<>();
+        Timer.Sample commandTimer = Timer.start(meterRegistry);
 
         OcppJsonRpcMessage message = OcppJsonRpcMessage.createCall(messageId, action, payload);
         String messageJson = message.toJson();
 
         pendingResponses.put(messageId, future);
 
+        future.orTimeout(responseTimeoutSeconds, TimeUnit.SECONDS)
+                .whenComplete((ignored, throwable) -> {
+                    pendingResponses.remove(messageId, future);
+                    commandTimer.stop(Timer.builder("electrahub.ocpp.remote_command.duration")
+                            .description("Time from an OCPP command send to a terminal response")
+                            .publishPercentileHistogram()
+                            .tag("action", action)
+                            .tag("outcome", commandOutcome(throwable))
+                            .register(meterRegistry));
+                    if (throwable instanceof java.util.concurrent.TimeoutException) {
+                        log.warn("Command timeout for {}: action={}, messageId={}", chargePointId, action, messageId);
+                    }
+                });
+
         try {
             connectionManager.sendMessage(chargePointId, messageJson);
             log.info("Sent command to {}: action={}, messageId={}", chargePointId, action, messageId);
-
-            future.orTimeout(responseTimeoutSeconds, TimeUnit.SECONDS)
-                    .whenComplete((ignored, throwable) -> {
-                        pendingResponses.remove(messageId, future);
-                        if (throwable instanceof java.util.concurrent.TimeoutException) {
-                            log.warn("Command timeout for {}: action={}, messageId={}", chargePointId, action, messageId);
-                        }
-                    });
-
         } catch (IOException e) {
             log.error("Error sending command to {}: {}", chargePointId, e.getMessage(), e);
-            pendingResponses.remove(messageId);
             future.completeExceptionally(e);
         }
 
@@ -179,6 +192,16 @@ public class RemoteCommandService {
 
     private boolean isOcpp201(String chargePointId) {
         return "OCPP201".equalsIgnoreCase(connectionManager.getProtocol(chargePointId));
+    }
+
+    private String commandOutcome(Throwable throwable) {
+        if (throwable == null) {
+            return "success";
+        }
+        if (throwable instanceof java.util.concurrent.TimeoutException) {
+            return "timeout";
+        }
+        return "failure";
     }
 
     /**

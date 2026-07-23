@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: ocpp-service
+  mvc:
+    async:
+      # Remote OCPP commands time out at 30s; keep the servlet async timeout above it.
+      request-timeout: ${SERVER_MVC_ASYNC_REQUEST_TIMEOUT:35s}
   datasource:
     url: jdbc:postgresql://localhost:5432/ocpp_db
     username: ${DB_USERNAME:postgres}
@@ -35,6 +39,9 @@ ocpp:
     max-binary-message-size: 65536
 
 integration:
+  http:
+    connect-timeout-ms: ${INTEGRATION_HTTP_CONNECT_TIMEOUT_MS:1000}
+    read-timeout-ms: ${INTEGRATION_HTTP_READ_TIMEOUT_MS:5000}
   station-service:
     base-url: ${STATION_SERVICE_URL:http://localhost:8081}
   session-service:

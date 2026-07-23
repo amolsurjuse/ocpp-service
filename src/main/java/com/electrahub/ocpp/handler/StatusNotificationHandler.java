@@ -64,7 +64,7 @@ public class StatusNotificationHandler implements OcppMessageHandler {
             boolean endSessionRequested = "EndSessionRequested".equalsIgnoreCase(payload.path("info").asText())
                     || payload.path("customData").path("endSessionRequested").asBoolean(false);
 
-            log.info("Connector status update: chargePoint={}, connector={}, status={}, errorCode={}",
+            log.debug("Connector status update: chargePoint={}, connector={}, status={}, errorCode={}",
                 chargePointId, connectorId, status, errorCode);
 
             stationServiceClient.updateConnectorStatus(chargePointId, connectorId, status);
