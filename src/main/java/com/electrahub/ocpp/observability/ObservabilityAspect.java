@@ -65,7 +65,11 @@ public class ObservabilityAspect {
                 .register(meterRegistry)
                 .increment();
 
-        LOGGER.info("Starting {}.{}", className, methodName);
+        // Per-method traces are valuable while diagnosing a single charger, but at
+        // fleet scale they turn every meter update into several synchronous INFO
+        // writes. Micrometer remains the production signal; detailed traces stay
+        // available when this logger is enabled at DEBUG.
+        LOGGER.debug("Starting {}.{}", className, methodName);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Arguments for {}.{} -> {}", className, methodName, formatArgs(joinPoint.getArgs()));
         }
@@ -83,7 +87,7 @@ public class ObservabilityAspect {
                     .tag("outcome", "success")
                     .register(meterRegistry));
 
-            LOGGER.info("Completed {}.{} in {} ms", className, methodName, durationMs);
+            LOGGER.debug("Completed {}.{} in {} ms", className, methodName, durationMs);
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Result for {}.{} -> {}", className, methodName, abbreviate(result));
             }
@@ -105,7 +109,7 @@ public class ObservabilityAspect {
                     .register(meterRegistry)
                     .increment();
 
-            LOGGER.info("Failed {}.{} in {} ms: {}", className, methodName, durationMs, ex.toString());
+            LOGGER.warn("Failed {}.{} in {} ms: {}", className, methodName, durationMs, ex.toString());
             LOGGER.debug("Failure stack trace for {}.{}", className, methodName, ex);
             throw ex;
         }

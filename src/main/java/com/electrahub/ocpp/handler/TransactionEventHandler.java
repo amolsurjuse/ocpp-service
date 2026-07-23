@@ -57,7 +57,11 @@ public class TransactionEventHandler implements OcppMessageHandler {
             String triggerReason = payload.path("triggerReason").asText();
             int connectorId = resolveConnectorId(payload);
 
-            log.info("Transaction event from {}: eventType={}, trigger={}", chargePointId, eventType, triggerReason);
+        if ("Started".equalsIgnoreCase(eventType) || "Ended".equalsIgnoreCase(eventType)) {
+            log.info("Transaction lifecycle event from {}: eventType={}, trigger={}", chargePointId, eventType, triggerReason);
+        } else {
+            log.debug("Transaction event from {}: eventType={}, trigger={}", chargePointId, eventType, triggerReason);
+        }
 
             JsonNode transactionInfo = payload.path("transactionInfo");
             int transactionId = transactionInfo.path("transactionId").asInt(generateTransactionId());

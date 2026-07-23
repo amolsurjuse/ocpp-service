@@ -41,7 +41,7 @@ public class OcppMessageRouter {
      * @return result produced by routeMessage.
      */
     public OcppJsonRpcMessage routeMessage(String chargePointId, OcppJsonRpcMessage message) {
-        LOGGER.info(" Entering OcppMessageRouter#routeMessage");
+        LOGGER.debug("Entering OcppMessageRouter#routeMessage");
         LOGGER.debug(" Entering OcppMessageRouter#routeMessage with debug context");
         OcppMessageType type = OcppMessageType.fromValue(message.getMessageTypeId());
 
@@ -69,7 +69,7 @@ public class OcppMessageRouter {
      */
     private OcppJsonRpcMessage handleCall(String chargePointId, OcppJsonRpcMessage message) {
         String action = message.getAction();
-        log.info("Handling CALL from {}: action={}, messageId={}", chargePointId, action, message.getMessageId());
+        log.debug("Handling CALL from {}: action={}, messageId={}", chargePointId, action, message.getMessageId());
 
         OcppMessageHandler handler = handlers.get(action);
         if (handler == null) {

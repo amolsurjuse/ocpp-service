@@ -3,7 +3,6 @@ package com.electrahub.ocpp.service;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import com.electrahub.ocpp.exception.ChargePointNotConnectedException;
-import com.electrahub.ocpp.exception.OcppCommandTimeoutException;
 import com.electrahub.ocpp.websocket.ConnectionManager;
 import com.electrahub.ocpp.websocket.OcppJsonRpcMessage;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -73,13 +72,12 @@ public class RemoteCommandService {
             log.info("Sent command to {}: action={}, messageId={}", chargePointId, action, messageId);
 
             future.orTimeout(responseTimeoutSeconds, TimeUnit.SECONDS)
-                .exceptionally(throwable -> {
-                    if (throwable instanceof java.util.concurrent.TimeoutException) {
-                        log.warn("Command timeout for {}: action={}, messageId={}", chargePointId, action, messageId);
-                        throw new OcppCommandTimeoutException("Command timeout: " + action);
-                    }
-                    throw new RuntimeException(throwable);
-                });
+                    .whenComplete((ignored, throwable) -> {
+                        pendingResponses.remove(messageId, future);
+                        if (throwable instanceof java.util.concurrent.TimeoutException) {
+                            log.warn("Command timeout for {}: action={}, messageId={}", chargePointId, action, messageId);
+                        }
+                    });
 
         } catch (IOException e) {
             log.error("Error sending command to {}: {}", chargePointId, e.getMessage(), e);

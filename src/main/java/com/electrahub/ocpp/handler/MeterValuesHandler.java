@@ -56,7 +56,7 @@ public class MeterValuesHandler implements OcppMessageHandler {
             String timestamp = extractTimestamp(payload);
             MeterSnapshot snapshot = extractSnapshot(payload);
 
-            log.info("Processing meter values for transaction: {}", transactionId);
+        log.debug("Processing meter values for transaction: {}", transactionId);
 
             sessionServiceClient.onMeterValues(
                     chargePointId,

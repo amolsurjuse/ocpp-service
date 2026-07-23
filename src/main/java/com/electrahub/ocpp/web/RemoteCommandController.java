@@ -2,6 +2,7 @@ package com.electrahub.ocpp.web;
 
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import com.electrahub.ocpp.exception.OcppCommandTimeoutException;
 import com.electrahub.ocpp.service.RemoteCommandService;
 import com.electrahub.ocpp.web.dto.*;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 @RestController
 @RequestMapping("/api/v1/ocpp/commands")
@@ -136,6 +138,9 @@ public class RemoteCommandController {
             throw new IllegalStateException("Interrupted while waiting for OCPP command response", ex);
         } catch (ExecutionException ex) {
             Throwable cause = ex.getCause();
+            if (cause instanceof TimeoutException) {
+                throw new OcppCommandTimeoutException("Timed out waiting for an OCPP command response");
+            }
             if (cause instanceof RuntimeException runtimeException) {
                 throw runtimeException;
             }
