@@ -1,7 +1,9 @@
 package com.electrahub.ocpp.handler;
 
 import com.electrahub.ocpp.integration.SessionServiceClient;
+import com.electrahub.ocpp.service.OcppAuthorizationGrantService;
 import com.electrahub.ocpp.service.OcppMessageHandler;
+import com.electrahub.ocpp.service.OcppTelemetryDispatcher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -14,6 +16,8 @@ import java.time.Instant;
 @Slf4j
 public class StartTransactionHandler implements OcppMessageHandler {
     private final SessionServiceClient sessionServiceClient;
+    private final OcppAuthorizationGrantService authorizationGrants;
+    private final OcppTelemetryDispatcher callbackDispatcher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -23,8 +27,14 @@ public class StartTransactionHandler implements OcppMessageHandler {
      * enforces component-specific rules in `com.electrahub.ocpp.handler`.
      * @param sessionServiceClient input consumed by StartTransactionHandler.
      */
-    public StartTransactionHandler(SessionServiceClient sessionServiceClient) {
+    public StartTransactionHandler(
+            SessionServiceClient sessionServiceClient,
+            OcppAuthorizationGrantService authorizationGrants,
+            OcppTelemetryDispatcher callbackDispatcher
+    ) {
         this.sessionServiceClient = sessionServiceClient;
+        this.authorizationGrants = authorizationGrants;
+        this.callbackDispatcher = callbackDispatcher;
     }
 
     /**
@@ -60,25 +70,44 @@ public class StartTransactionHandler implements OcppMessageHandler {
             log.info("Starting transaction for charge point: {}, connector: {}, idTag: {}",
                 chargePointId, connectorId, idTag);
 
-            sessionServiceClient.onStartTransaction(
-                    chargePointId,
-                    connectorId,
-                    idTag,
-                    null,
-                    meterStart,
-                    timestamp,
-                    transactionId
+            if (isCardPresentToken(idTag)) {
+                // Card-present sessions must be verified against the payment service before
+                // the charger is told that the transaction is accepted.
+                sessionServiceClient.onStartTransaction(
+                        chargePointId,
+                        connectorId,
+                        idTag,
+                        null,
+                        meterStart,
+                        timestamp,
+                        transactionId
+                );
+                return acceptedResponse(transactionId);
+            }
+
+            if (!authorizationGrants.consumeForStart(chargePointId, connectorId, idTag, transactionId)) {
+                log.warn("Rejecting StartTransaction without an active authorization grant for chargePointId={} connectorId={}",
+                        chargePointId, connectorId);
+                return invalidResponse();
+            }
+
+            boolean queued = callbackDispatcher.dispatchStartTransaction(chargePointId, connectorId, () ->
+                    sessionServiceClient.onStartTransaction(
+                            chargePointId,
+                            connectorId,
+                            idTag,
+                            null,
+                            meterStart,
+                            timestamp,
+                            transactionId
+                    )
             );
-
-            ObjectNode idTagInfo = objectMapper.createObjectNode();
-            idTagInfo.put("status", "Accepted");
-
-            ObjectNode response = objectMapper.createObjectNode();
-            response.put("transactionId", transactionId);
-            response.set("idTagInfo", idTagInfo);
+            if (!queued) {
+                return invalidResponse();
+            }
 
             log.debug("StartTransaction response: transactionId={}", transactionId);
-            return response;
+            return acceptedResponse(transactionId);
         } catch (Exception e) {
             if (SessionServiceClient.isExpectedSessionCallbackFailure(e)) {
                 log.warn("StartTransaction rejected by session-service for chargePointId={} summary={}",
@@ -86,13 +115,30 @@ public class StartTransactionHandler implements OcppMessageHandler {
             } else {
                 log.error("Error handling StartTransaction: {}", e.getMessage(), e);
             }
-            ObjectNode idTagInfo = objectMapper.createObjectNode();
-            idTagInfo.put("status", "Invalid");
-            ObjectNode response = objectMapper.createObjectNode();
-            response.put("transactionId", 0);
-            response.set("idTagInfo", idTagInfo);
-            return response;
+            return invalidResponse();
         }
+    }
+
+    private ObjectNode acceptedResponse(int transactionId) {
+        ObjectNode idTagInfo = objectMapper.createObjectNode();
+        idTagInfo.put("status", "Accepted");
+        ObjectNode response = objectMapper.createObjectNode();
+        response.put("transactionId", transactionId);
+        response.set("idTagInfo", idTagInfo);
+        return response;
+    }
+
+    private ObjectNode invalidResponse() {
+        ObjectNode idTagInfo = objectMapper.createObjectNode();
+        idTagInfo.put("status", "Invalid");
+        ObjectNode response = objectMapper.createObjectNode();
+        response.put("transactionId", 0);
+        response.set("idTagInfo", idTagInfo);
+        return response;
+    }
+
+    private boolean isCardPresentToken(String idTag) {
+        return idTag != null && idTag.regionMatches(true, 0, "CP:", 0, 3);
     }
 
     private int generateTransactionId() {

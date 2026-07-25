@@ -1,6 +1,7 @@
 package com.electrahub.ocpp.handler;
 
 import com.electrahub.ocpp.integration.SessionServiceClient;
+import com.electrahub.ocpp.service.OcppAuthorizationGrantService;
 import com.electrahub.ocpp.service.OcppTelemetryDispatcher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,8 +13,10 @@ import static org.mockito.Mockito.verify;
 
 class TransactionEventHandlerTest {
     private final SessionServiceClient sessionServiceClient = mock(SessionServiceClient.class);
+    private final OcppAuthorizationGrantService authorizationGrants = mock(OcppAuthorizationGrantService.class);
     private final TransactionEventHandler handler = new TransactionEventHandler(
             sessionServiceClient,
+            authorizationGrants,
             new OcppTelemetryDispatcher(Runnable::run, new SimpleMeterRegistry())
     );
     private final ObjectMapper objectMapper = new ObjectMapper();

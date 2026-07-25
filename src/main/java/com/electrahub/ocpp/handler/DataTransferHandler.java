@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import com.electrahub.ocpp.service.OcppMessageHandler;
 import com.electrahub.ocpp.integration.SessionServiceClient;
+import com.electrahub.ocpp.service.OcppAuthorizationGrantService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,9 +19,14 @@ public class DataTransferHandler implements OcppMessageHandler {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final SessionServiceClient sessionServiceClient;
+    private final OcppAuthorizationGrantService authorizationGrants;
 
-    public DataTransferHandler(SessionServiceClient sessionServiceClient) {
+    public DataTransferHandler(
+            SessionServiceClient sessionServiceClient,
+            OcppAuthorizationGrantService authorizationGrants
+    ) {
         this.sessionServiceClient = sessionServiceClient;
+        this.authorizationGrants = authorizationGrants;
     }
 
     /**
@@ -69,8 +75,14 @@ public class DataTransferHandler implements OcppMessageHandler {
             String certificate = data.path("certificate").asText(null);
             SessionServiceClient.AuthorizationResult authorization = sessionServiceClient.authorize(emaid, "eMAID", certificate);
 
+            boolean accepted = authorization.authorized();
+            if (accepted && !authorizationGrants.grantAuthorization(chargePointId, emaid)) {
+                accepted = false;
+                log.warn("Rejecting Plug & Charge authorization for charge point {} because the one-time start grant could not be stored", chargePointId);
+            }
+
             ObjectNode idTokenInfo = objectMapper.createObjectNode();
-            idTokenInfo.put("status", authorization.authorized() ? "Accepted" : normalizedStatus(authorization.status()));
+            idTokenInfo.put("status", accepted ? "Accepted" : normalizedStatus(authorization.status()));
             ObjectNode authorizeResponse = objectMapper.createObjectNode();
             authorizeResponse.set("idTokenInfo", idTokenInfo);
             authorizeResponse.put("certificateStatus", authorization.certificateStatus() == null

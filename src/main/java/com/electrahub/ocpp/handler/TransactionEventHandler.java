@@ -1,6 +1,7 @@
 package com.electrahub.ocpp.handler;
 
 import com.electrahub.ocpp.integration.SessionServiceClient;
+import com.electrahub.ocpp.service.OcppAuthorizationGrantService;
 import com.electrahub.ocpp.service.OcppMessageHandler;
 import com.electrahub.ocpp.service.OcppTelemetryDispatcher;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -16,6 +17,7 @@ import java.time.Instant;
 @Slf4j
 public class TransactionEventHandler implements OcppMessageHandler {
     private final SessionServiceClient sessionServiceClient;
+    private final OcppAuthorizationGrantService authorizationGrants;
     private final OcppTelemetryDispatcher telemetryDispatcher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -28,9 +30,11 @@ public class TransactionEventHandler implements OcppMessageHandler {
      */
     public TransactionEventHandler(
             SessionServiceClient sessionServiceClient,
+            OcppAuthorizationGrantService authorizationGrants,
             OcppTelemetryDispatcher telemetryDispatcher
     ) {
         this.sessionServiceClient = sessionServiceClient;
+        this.authorizationGrants = authorizationGrants;
         this.telemetryDispatcher = telemetryDispatcher;
     }
 
@@ -79,15 +83,31 @@ public class TransactionEventHandler implements OcppMessageHandler {
                     );
                     String idTokenType = payload.path("idToken").path("type").asText(null);
                     int meterStart = integerValueOrZero(extractSnapshot(payload).energyWh());
-                    sessionServiceClient.onStartTransaction(
-                            chargePointId,
-                            connectorId,
-                            idTag,
-                            idTokenType,
-                            meterStart,
-                            timestamp,
-                            transactionId
-                    );
+                    if (isCardPresentToken(idTag)) {
+                        sessionServiceClient.onStartTransaction(
+                                chargePointId,
+                                connectorId,
+                                idTag,
+                                idTokenType,
+                                meterStart,
+                                timestamp,
+                                transactionId
+                        );
+                    } else if (!authorizationGrants.consumeForStart(chargePointId, connectorId, idTag, transactionId)) {
+                        return invalidStartResponse();
+                    } else if (!telemetryDispatcher.dispatchStartTransaction(chargePointId, connectorId, () ->
+                            sessionServiceClient.onStartTransaction(
+                                    chargePointId,
+                                    connectorId,
+                                    idTag,
+                                    idTokenType,
+                                    meterStart,
+                                    timestamp,
+                                    transactionId
+                            )
+                    )) {
+                        return invalidStartResponse();
+                    }
                 }
                 case "Updated" -> {
                     String chargingState = transactionInfo.path("chargingState").asText("");
@@ -123,14 +143,28 @@ public class TransactionEventHandler implements OcppMessageHandler {
                 }
                 case "Ended" -> {
                     MeterSnapshot snapshot = extractSnapshot(payload);
-                    sessionServiceClient.onStopTransaction(
-                            transactionId,
-                            chargePointId,
-                            connectorId,
-                            integerValueOrZero(snapshot.energyWh()),
-                            timestamp,
-                            resolveStoppedReason(payload, triggerReason)
+                    int meterStop = integerValueOrZero(snapshot.energyWh());
+                    String stoppedReason = resolveStoppedReason(payload, triggerReason);
+                    boolean queued = telemetryDispatcher.dispatchStopTransaction(chargePointId, connectorId, () ->
+                            sessionServiceClient.onStopTransaction(
+                                    transactionId,
+                                    chargePointId,
+                                    connectorId,
+                                    meterStop,
+                                    timestamp,
+                                    stoppedReason
+                            )
                     );
+                    if (!queued) {
+                        sessionServiceClient.onStopTransaction(
+                                transactionId,
+                                chargePointId,
+                                connectorId,
+                                meterStop,
+                                timestamp,
+                                stoppedReason
+                        );
+                    }
                 }
             }
 
@@ -207,6 +241,18 @@ public class TransactionEventHandler implements OcppMessageHandler {
             return stoppedReason;
         }
         return triggerReason;
+    }
+
+    private ObjectNode invalidStartResponse() {
+        ObjectNode response = objectMapper.createObjectNode();
+        ObjectNode idTokenInfo = objectMapper.createObjectNode();
+        idTokenInfo.put("status", "Invalid");
+        response.set("idTokenInfo", idTokenInfo);
+        return response;
+    }
+
+    private boolean isCardPresentToken(String idTag) {
+        return idTag != null && idTag.regionMatches(true, 0, "CP:", 0, 3);
     }
 
     private int generateTransactionId() {

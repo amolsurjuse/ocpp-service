@@ -3,6 +3,7 @@ package com.electrahub.ocpp.handler;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import com.electrahub.ocpp.integration.SessionServiceClient;
+import com.electrahub.ocpp.service.OcppAuthorizationGrantService;
 import com.electrahub.ocpp.service.OcppMessageHandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -17,6 +18,7 @@ public class AuthorizeHandler implements OcppMessageHandler {
 
 
     private final SessionServiceClient sessionServiceClient;
+    private final OcppAuthorizationGrantService authorizationGrants;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -26,10 +28,14 @@ public class AuthorizeHandler implements OcppMessageHandler {
      * enforces component-specific rules in `com.electrahub.ocpp.handler`.
      * @param sessionServiceClient input consumed by AuthorizeHandler.
      */
-    public AuthorizeHandler(SessionServiceClient sessionServiceClient) {
+    public AuthorizeHandler(
+            SessionServiceClient sessionServiceClient,
+            OcppAuthorizationGrantService authorizationGrants
+    ) {
         LOGGER.info(" Entering AuthorizeHandler#AuthorizeHandler");
         LOGGER.debug(" Entering AuthorizeHandler#AuthorizeHandler with debug context");
         this.sessionServiceClient = sessionServiceClient;
+        this.authorizationGrants = authorizationGrants;
     }
 
     /**
@@ -71,13 +77,21 @@ public class AuthorizeHandler implements OcppMessageHandler {
             // Call session service to authorize
             SessionServiceClient.AuthorizationResult authorization = sessionServiceClient.authorize(idTag, idTokenType, certificate);
 
+            boolean accepted = authorization.authorized();
+            if (accepted && !authorizationGrants.grantAuthorization(chargePointId, idTag)) {
+                accepted = false;
+                log.warn("Rejecting OCPP authorization for charge point {} because the one-time start grant could not be stored", chargePointId);
+            }
+
             ObjectNode tokenInfo = objectMapper.createObjectNode();
-            tokenInfo.put("status", authorization.authorized() ? "Accepted" : normalizedStatus(authorization.status(), ocpp201));
+            tokenInfo.put("status", accepted ? "Accepted" : normalizedStatus(authorization.status(), ocpp201));
 
             ObjectNode response = objectMapper.createObjectNode();
             response.set(ocpp201 ? "idTokenInfo" : "idTagInfo", tokenInfo);
             if (ocpp201 && certificate != null && !certificate.isBlank()) {
-                response.put("certificateStatus", authorization.certificateStatus() == null ? "NoCertificateAvailable" : authorization.certificateStatus());
+                response.put("certificateStatus", authorization.certificateStatus() == null
+                        ? "NoCertificateAvailable"
+                        : authorization.certificateStatus());
             }
 
             log.debug("Authorization response: status={} for idTag: {}",

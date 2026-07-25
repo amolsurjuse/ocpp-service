@@ -2,6 +2,7 @@ package com.electrahub.ocpp.handler;
 
 import com.electrahub.ocpp.integration.SessionServiceClient;
 import com.electrahub.ocpp.service.OcppMessageHandler;
+import com.electrahub.ocpp.service.OcppTelemetryDispatcher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class StopTransactionHandler implements OcppMessageHandler {
     private final SessionServiceClient sessionServiceClient;
+    private final OcppTelemetryDispatcher callbackDispatcher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -21,8 +23,12 @@ public class StopTransactionHandler implements OcppMessageHandler {
      * enforces component-specific rules in `com.electrahub.ocpp.handler`.
      * @param sessionServiceClient input consumed by StopTransactionHandler.
      */
-    public StopTransactionHandler(SessionServiceClient sessionServiceClient) {
+    public StopTransactionHandler(
+            SessionServiceClient sessionServiceClient,
+            OcppTelemetryDispatcher callbackDispatcher
+    ) {
         this.sessionServiceClient = sessionServiceClient;
+        this.callbackDispatcher = callbackDispatcher;
     }
 
     /**
@@ -57,20 +63,31 @@ public class StopTransactionHandler implements OcppMessageHandler {
 
             log.info("Stopping transaction: {}, meter: {}", transactionId, meterStop);
 
-            sessionServiceClient.onStopTransaction(
-                    transactionId,
-                    chargePointId,
-                    connectorId > 0 ? connectorId : null,
-                    meterStop,
-                    timestamp,
-                    reason
+            Integer resolvedConnectorId = connectorId > 0 ? connectorId : null;
+            boolean queued = callbackDispatcher.dispatchStopTransaction(chargePointId, resolvedConnectorId, () ->
+                    sessionServiceClient.onStopTransaction(
+                            transactionId,
+                            chargePointId,
+                            resolvedConnectorId,
+                            meterStop,
+                            timestamp,
+                            reason
+                    )
             );
-
-            ObjectNode idTagInfo = objectMapper.createObjectNode();
-            idTagInfo.put("status", "Accepted");
+            if (!queued) {
+                // A stop changes financial settlement. Queue exhaustion is exceptional;
+                // synchronously persisting it is safer than dropping the terminal event.
+                sessionServiceClient.onStopTransaction(
+                        transactionId,
+                        chargePointId,
+                        resolvedConnectorId,
+                        meterStop,
+                        timestamp,
+                        reason
+                );
+            }
 
             ObjectNode response = objectMapper.createObjectNode();
-            response.set("idTagInfo", idTagInfo);
 
             log.debug("StopTransaction response: transactionId={}", transactionId);
             return response;

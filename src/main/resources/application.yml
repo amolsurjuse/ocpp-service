@@ -44,9 +44,18 @@ ocpp:
       queue-capacity: ${OCPP_INBOUND_CALL_EXECUTOR_QUEUE_CAPACITY:2000}
   telemetry:
     executor:
-      core-pool-size: ${OCPP_TELEMETRY_EXECUTOR_CORE_POOL_SIZE:16}
-      max-pool-size: ${OCPP_TELEMETRY_EXECUTOR_MAX_POOL_SIZE:16}
+      core-pool-size: ${OCPP_TELEMETRY_EXECUTOR_CORE_POOL_SIZE:32}
+      max-pool-size: ${OCPP_TELEMETRY_EXECUTOR_MAX_POOL_SIZE:32}
       queue-capacity: ${OCPP_TELEMETRY_EXECUTOR_QUEUE_CAPACITY:1000}
+  authorization-grant:
+    ttl-seconds: ${OCPP_AUTHORIZATION_GRANT_TTL_SECONDS:300}
+  session-callback:
+    max-lifecycle-events-per-connector: ${OCPP_SESSION_CALLBACK_MAX_LIFECYCLE_EVENTS_PER_CONNECTOR:32}
+    retry:
+      max-attempts: ${OCPP_SESSION_CALLBACK_RETRY_MAX_ATTEMPTS:8}
+      initial-backoff-ms: ${OCPP_SESSION_CALLBACK_RETRY_INITIAL_BACKOFF_MS:250}
+      max-backoff-ms: ${OCPP_SESSION_CALLBACK_RETRY_MAX_BACKOFF_MS:5000}
+      scheduler-threads: ${OCPP_SESSION_CALLBACK_RETRY_SCHEDULER_THREADS:2}
 
 integration:
   http:

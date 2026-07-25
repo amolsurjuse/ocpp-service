@@ -72,8 +72,8 @@ public class AsyncConfig {
     @Bean(name = "ocppTelemetryExecutor")
     public ThreadPoolTaskExecutor ocppTelemetryExecutor(
             MeterRegistry meterRegistry,
-            @Value("${ocpp.telemetry.executor.core-pool-size:16}") int corePoolSize,
-            @Value("${ocpp.telemetry.executor.max-pool-size:16}") int maxPoolSize,
+            @Value("${ocpp.telemetry.executor.core-pool-size:32}") int corePoolSize,
+            @Value("${ocpp.telemetry.executor.max-pool-size:32}") int maxPoolSize,
             @Value("${ocpp.telemetry.executor.queue-capacity:1000}") int queueCapacity
     ) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
@@ -87,14 +87,14 @@ public class AsyncConfig {
         executor.initialize();
 
         Gauge.builder("ocpp.telemetry.active", executor, ThreadPoolTaskExecutor::getActiveCount)
-                .description("Active OCPP telemetry delivery workers")
+                .description("Active OCPP ordered session callback workers")
                 .register(meterRegistry);
         Gauge.builder("ocpp.telemetry.queue.depth", executor,
                         value -> value.getThreadPoolExecutor().getQueue().size())
-                .description("Queued OCPP telemetry delivery workers")
+                .description("Queued OCPP ordered session callback workers")
                 .register(meterRegistry);
         Gauge.builder("ocpp.telemetry.pool.size", executor, ThreadPoolTaskExecutor::getPoolSize)
-                .description("OCPP telemetry delivery worker pool size")
+                .description("OCPP ordered session callback worker pool size")
                 .register(meterRegistry);
         return executor;
     }

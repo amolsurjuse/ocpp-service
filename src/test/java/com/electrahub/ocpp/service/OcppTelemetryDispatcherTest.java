@@ -49,6 +49,36 @@ class OcppTelemetryDispatcherTest {
         }
     }
 
+    @Test
+    void deliversLifecycleBeforeLaterTelemetryForTheSameConnector() throws Exception {
+        ExecutorService workers = Executors.newSingleThreadExecutor();
+        try {
+            OcppTelemetryDispatcher dispatcher = new OcppTelemetryDispatcher(workers::execute, new SimpleMeterRegistry());
+            CountDownLatch startRunning = new CountDownLatch(1);
+            CountDownLatch allowStartToFinish = new CountDownLatch(1);
+            CountDownLatch statusDelivered = new CountDownLatch(1);
+            List<String> delivered = new CopyOnWriteArrayList<>();
+
+            dispatcher.dispatchStartTransaction("EH-US-CHG-0001", 1, () -> {
+                startRunning.countDown();
+                await(allowStartToFinish);
+                delivered.add("start");
+            });
+            assertThat(startRunning.await(1, TimeUnit.SECONDS)).isTrue();
+            dispatcher.dispatchStatusNotification("EH-US-CHG-0001", 1, () -> {
+                delivered.add("charging");
+                statusDelivered.countDown();
+            });
+
+            allowStartToFinish.countDown();
+            assertThat(statusDelivered.await(1, TimeUnit.SECONDS)).isTrue();
+            assertThat(delivered).containsExactly("start", "charging");
+        } finally {
+            workers.shutdownNow();
+            workers.awaitTermination(1, TimeUnit.SECONDS);
+        }
+    }
+
     private static void await(CountDownLatch latch) {
         try {
             if (!latch.await(1, TimeUnit.SECONDS)) {

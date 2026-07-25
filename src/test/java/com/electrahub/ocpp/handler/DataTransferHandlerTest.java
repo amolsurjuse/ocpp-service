@@ -1,6 +1,7 @@
 package com.electrahub.ocpp.handler;
 
 import com.electrahub.ocpp.integration.SessionServiceClient;
+import com.electrahub.ocpp.service.OcppAuthorizationGrantService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -12,13 +13,15 @@ import static org.mockito.Mockito.when;
 
 class DataTransferHandlerTest {
     private final SessionServiceClient sessionServiceClient = mock(SessionServiceClient.class);
-    private final DataTransferHandler handler = new DataTransferHandler(sessionServiceClient);
+    private final OcppAuthorizationGrantService authorizationGrants = mock(OcppAuthorizationGrantService.class);
+    private final DataTransferHandler handler = new DataTransferHandler(sessionServiceClient, authorizationGrants);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     void authorizesOcpp16PlugAndChargeUsingTheOcaDataTransferContract() throws Exception {
         when(sessionServiceClient.authorize("US-EHB-C12345678", "eMAID", "CERT-EHB-001"))
                 .thenReturn(new SessionServiceClient.AuthorizationResult(true, "Accepted", null, "Accepted"));
+        when(authorizationGrants.grantAuthorization("EH-US-CHG-0003", "US-EHB-C12345678")).thenReturn(true);
         JsonNode request = objectMapper.readTree("""
                 {
                   "vendorId": "org.openchargealliance.iso15118pnc",
@@ -34,6 +37,7 @@ class DataTransferHandlerTest {
         assertEquals("Accepted", wrappedResponse.path("idTokenInfo").path("status").asText());
         assertEquals("Accepted", wrappedResponse.path("certificateStatus").asText());
         verify(sessionServiceClient).authorize("US-EHB-C12345678", "eMAID", "CERT-EHB-001");
+        verify(authorizationGrants).grantAuthorization("EH-US-CHG-0003", "US-EHB-C12345678");
     }
 
     @Test

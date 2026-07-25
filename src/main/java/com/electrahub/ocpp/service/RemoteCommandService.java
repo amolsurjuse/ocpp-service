@@ -28,6 +28,7 @@ public class RemoteCommandService {
 
 
     private final ConnectionManager connectionManager;
+    private final OcppAuthorizationGrantService authorizationGrants;
     private final MeterRegistry meterRegistry;
     private final ConcurrentHashMap<String, CompletableFuture<JsonNode>> pendingResponses = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -42,10 +43,15 @@ public class RemoteCommandService {
      * enforces component-specific rules in `com.electrahub.ocpp.service`.
      * @param connectionManager input consumed by RemoteCommandService.
      */
-    public RemoteCommandService(ConnectionManager connectionManager, MeterRegistry meterRegistry) {
+    public RemoteCommandService(
+            ConnectionManager connectionManager,
+            OcppAuthorizationGrantService authorizationGrants,
+            MeterRegistry meterRegistry
+    ) {
         LOGGER.info(" Entering RemoteCommandService#RemoteCommandService");
         LOGGER.debug(" Entering RemoteCommandService#RemoteCommandService with debug context");
         this.connectionManager = connectionManager;
+        this.authorizationGrants = authorizationGrants;
         this.meterRegistry = meterRegistry;
         Gauge.builder("electrahub.ocpp.remote_command.pending", pendingResponses, responses -> responses.size())
                 .description("OCPP commands awaiting a charge-point response")
@@ -147,6 +153,24 @@ public class RemoteCommandService {
      * @return result produced by remoteStartTransaction.
      */
     public CompletableFuture<JsonNode> remoteStartTransaction(String chargePointId, String idTag, Integer connectorId) {
+        if (!authorizationGrants.grantRemoteStart(chargePointId, connectorId, idTag)) {
+            throw new IllegalStateException("Unable to create the remote-start authorization grant");
+        }
+        CompletableFuture<JsonNode> command;
+        try {
+            command = sendRemoteStartCommand(chargePointId, idTag, connectorId);
+        } catch (RuntimeException exception) {
+            authorizationGrants.revokeRemoteStart(chargePointId, connectorId, idTag);
+            throw exception;
+        }
+        return command.whenComplete((response, error) -> {
+            if (error != null || !acceptedRemoteStart(response)) {
+                authorizationGrants.revokeRemoteStart(chargePointId, connectorId, idTag);
+            }
+        });
+    }
+
+    private CompletableFuture<JsonNode> sendRemoteStartCommand(String chargePointId, String idTag, Integer connectorId) {
         if (isOcpp201(chargePointId)) {
             ObjectNode idToken = objectMapper.createObjectNode();
             idToken.put("idToken", idTag);
@@ -167,6 +191,14 @@ public class RemoteCommandService {
             payload.put("connectorId", connectorId);
         }
         return sendCommand(chargePointId, "RemoteStartTransaction", payload);
+    }
+
+    private boolean acceptedRemoteStart(JsonNode response) {
+        if (response == null || response.isNull()) {
+            return false;
+        }
+        String status = response.path("status").asText("");
+        return "Accepted".equalsIgnoreCase(status) || "Started".equalsIgnoreCase(status);
     }
 
     /**
