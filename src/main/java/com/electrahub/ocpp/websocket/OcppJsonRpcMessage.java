@@ -37,8 +37,6 @@ public class OcppJsonRpcMessage {
      * @return result produced by createCall.
      */
     public static OcppJsonRpcMessage createCall(String messageId, String action, JsonNode payload) {
-        LOGGER.info(" Entering OcppJsonRpcMessage#createCall");
-        LOGGER.debug(" Entering OcppJsonRpcMessage#createCall with debug context");
         OcppJsonRpcMessage msg = new OcppJsonRpcMessage();
         msg.setMessageTypeId(OcppMessageType.CALL.getValue());
         msg.setMessageId(messageId);

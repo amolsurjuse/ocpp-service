@@ -1,13 +1,17 @@
 package com.electrahub.ocpp.config;
 
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
 @EnableAsync
@@ -32,6 +36,36 @@ public class AsyncConfig {
         executor.setQueueCapacity(100);
         executor.setThreadNamePrefix("ocpp-async-");
         executor.initialize();
+        return executor;
+    }
+
+    @Bean(name = "ocppInboundCallExecutor")
+    public ThreadPoolTaskExecutor ocppInboundCallExecutor(
+            MeterRegistry meterRegistry,
+            @Value("${ocpp.inbound.call-executor.core-pool-size:64}") int corePoolSize,
+            @Value("${ocpp.inbound.call-executor.max-pool-size:64}") int maxPoolSize,
+            @Value("${ocpp.inbound.call-executor.queue-capacity:2000}") int queueCapacity
+    ) {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(corePoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix("ocpp-inbound-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(15);
+        executor.initialize();
+
+        Gauge.builder("ocpp.inbound.calls.active", executor, ThreadPoolTaskExecutor::getActiveCount)
+                .description("Active OCPP inbound callback workers")
+                .register(meterRegistry);
+        Gauge.builder("ocpp.inbound.calls.queue.depth", executor,
+                        value -> value.getThreadPoolExecutor().getQueue().size())
+                .description("Queued OCPP inbound callbacks")
+                .register(meterRegistry);
+        Gauge.builder("ocpp.inbound.calls.pool.size", executor, ThreadPoolTaskExecutor::getPoolSize)
+                .description("OCPP inbound callback worker pool size")
+                .register(meterRegistry);
         return executor;
     }
 

@@ -3,6 +3,7 @@ package com.electrahub.ocpp.websocket;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import com.electrahub.ocpp.domain.OcppConnection;
+import com.electrahub.ocpp.domain.enums.OcppMessageType;
 import com.electrahub.ocpp.repository.OcppConnectionRepository;
 import com.electrahub.ocpp.service.ChargePointAvailabilityService;
 import com.electrahub.ocpp.service.OcppMessageLogService;
@@ -34,6 +35,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
     private final OcppConnectionRepository connectionRepository;
     private final OcppMessageLogService messageLogService;
     private final ChargePointAvailabilityService availabilityService;
+    private final OcppInboundCallDispatcher inboundCallDispatcher;
     private final Map<String, Instant> lastActivityPersistedAt = new ConcurrentHashMap<>();
 
     public OcppWebSocketHandler(
@@ -41,12 +43,14 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
             OcppMessageRouter messageRouter,
             OcppConnectionRepository connectionRepository,
             OcppMessageLogService messageLogService,
-            ChargePointAvailabilityService availabilityService) {
+            ChargePointAvailabilityService availabilityService,
+            OcppInboundCallDispatcher inboundCallDispatcher) {
         this.connectionManager = connectionManager;
         this.messageRouter = messageRouter;
         this.connectionRepository = connectionRepository;
         this.messageLogService = messageLogService;
         this.availabilityService = availabilityService;
+        this.inboundCallDispatcher = inboundCallDispatcher;
     }
 
     /**
@@ -100,24 +104,75 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
 
         try {
             OcppJsonRpcMessage ocppMessage = OcppJsonRpcMessage.parse(payload);
+            if (isCommandResponse(ocppMessage)) {
+                // Remote-command callers are waiting for this response. Do not put it
+                // behind REST callbacks such as MeterValues or StatusNotification.
+                messageRouter.routeMessage(chargePointId, ocppMessage);
+                return;
+            }
+
+            if (ocppMessage.getMessageTypeId() != OcppMessageType.CALL.getValue()) {
+                messageRouter.routeMessage(chargePointId, ocppMessage);
+                return;
+            }
+
+            boolean accepted = inboundCallDispatcher.dispatch(
+                    chargePointId,
+                    () -> processInboundCall(chargePointId, session, ocppMessage),
+                    () -> sendCallError(session, ocppMessage.getMessageId(), "InternalError",
+                            "CSMS callback processing is unavailable")
+            );
+            if (!accepted) {
+                sendCallError(session, ocppMessage.getMessageId(), "InternalError",
+                        "CSMS callback queue is full");
+            }
+        } catch (Exception e) {
+            log.error("Error handling message from {}: {}", chargePointId, e.getMessage(), e);
+            sendCallError(session, UUID.randomUUID().toString(), "InternalError", "Failed to process message");
+        }
+    }
+
+    private void processInboundCall(
+            String chargePointId,
+            WebSocketSession session,
+            OcppJsonRpcMessage ocppMessage
+    ) {
+        try {
             touchConnectionActivity(chargePointId, session);
             updateProtocolFromMessage(chargePointId, ocppMessage);
             OcppJsonRpcMessage response = messageRouter.routeMessage(chargePointId, ocppMessage);
-
             if (response != null) {
                 String responseJson = response.toJson();
                 connectionManager.sendMessage(session, responseJson);
                 log.debug("Sent response to {}: {}", chargePointId, responseJson);
             }
         } catch (Exception e) {
-            log.error("Error handling message from {}: {}", chargePointId, e.getMessage(), e);
-            OcppJsonRpcMessage errorResponse = OcppJsonRpcMessage.createCallError(
-                UUID.randomUUID().toString(),
-                "INTERNAL_ERROR",
-                "Failed to process message",
-                null
-            );
-            connectionManager.sendMessage(session, errorResponse.toJson());
+            log.error("Error processing inbound {} callback from {}: {}",
+                    ocppMessage.getAction(), chargePointId, e.getMessage(), e);
+            sendCallError(session, ocppMessage.getMessageId(), "InternalError", "Failed to process message");
+        }
+    }
+
+    private boolean isCommandResponse(OcppJsonRpcMessage message) {
+        return message.getMessageTypeId() == OcppMessageType.CALL_RESULT.getValue()
+                || message.getMessageTypeId() == OcppMessageType.CALL_ERROR.getValue();
+    }
+
+    private void sendCallError(
+            WebSocketSession session,
+            String messageId,
+            String errorCode,
+            String errorDescription
+    ) {
+        try {
+            connectionManager.sendMessage(session, OcppJsonRpcMessage.createCallError(
+                    messageId,
+                    errorCode,
+                    errorDescription,
+                    null
+            ).toJson());
+        } catch (IOException ioException) {
+            log.warn("Unable to send OCPP CallError to {}: {}", session.getId(), ioException.getMessage());
         }
     }
 
