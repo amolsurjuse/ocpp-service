@@ -42,6 +42,11 @@ ocpp:
       core-pool-size: ${OCPP_INBOUND_CALL_EXECUTOR_CORE_POOL_SIZE:64}
       max-pool-size: ${OCPP_INBOUND_CALL_EXECUTOR_MAX_POOL_SIZE:64}
       queue-capacity: ${OCPP_INBOUND_CALL_EXECUTOR_QUEUE_CAPACITY:2000}
+  telemetry:
+    executor:
+      core-pool-size: ${OCPP_TELEMETRY_EXECUTOR_CORE_POOL_SIZE:16}
+      max-pool-size: ${OCPP_TELEMETRY_EXECUTOR_MAX_POOL_SIZE:16}
+      queue-capacity: ${OCPP_TELEMETRY_EXECUTOR_QUEUE_CAPACITY:1000}
 
 integration:
   http:

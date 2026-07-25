@@ -2,6 +2,7 @@ package com.electrahub.ocpp.handler;
 
 import com.electrahub.ocpp.integration.SessionServiceClient;
 import com.electrahub.ocpp.service.OcppMessageHandler;
+import com.electrahub.ocpp.service.OcppTelemetryDispatcher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -15,6 +16,7 @@ import java.time.Instant;
 @Slf4j
 public class TransactionEventHandler implements OcppMessageHandler {
     private final SessionServiceClient sessionServiceClient;
+    private final OcppTelemetryDispatcher telemetryDispatcher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -24,8 +26,12 @@ public class TransactionEventHandler implements OcppMessageHandler {
      * enforces component-specific rules in `com.electrahub.ocpp.handler`.
      * @param sessionServiceClient input consumed by TransactionEventHandler.
      */
-    public TransactionEventHandler(SessionServiceClient sessionServiceClient) {
+    public TransactionEventHandler(
+            SessionServiceClient sessionServiceClient,
+            OcppTelemetryDispatcher telemetryDispatcher
+    ) {
         this.sessionServiceClient = sessionServiceClient;
+        this.telemetryDispatcher = telemetryDispatcher;
     }
 
     /**
@@ -87,25 +93,31 @@ public class TransactionEventHandler implements OcppMessageHandler {
                     String chargingState = transactionInfo.path("chargingState").asText("");
                     if ("ChargingStateChanged".equalsIgnoreCase(triggerReason) && !chargingState.isBlank()) {
                         JsonNode customData = payload.path("customData");
-                        sessionServiceClient.onStatusNotification(
-                                chargePointId,
-                                connectorId,
-                                chargingState,
-                                customData.path("errorCode").asText("NoError"),
-                                timestamp,
-                                transactionId,
-                                customData.path("endSessionRequested").asBoolean(false)
+                        String errorCode = customData.path("errorCode").asText("NoError");
+                        boolean endSessionRequested = customData.path("endSessionRequested").asBoolean(false);
+                        telemetryDispatcher.dispatchStatusNotification(chargePointId, connectorId, () ->
+                                sessionServiceClient.onStatusNotification(
+                                        chargePointId,
+                                        connectorId,
+                                        chargingState,
+                                        errorCode,
+                                        timestamp,
+                                        transactionId,
+                                        endSessionRequested
+                                )
                         );
                     } else {
                         MeterSnapshot snapshot = extractSnapshot(payload);
-                        sessionServiceClient.onMeterValues(
-                                chargePointId,
-                                transactionId,
-                                connectorId,
-                                timestamp,
-                                snapshot.energyWh(),
-                                snapshot.powerW(),
-                                snapshot.stateOfChargePercent()
+                        telemetryDispatcher.dispatchMeterValues(chargePointId, connectorId, () ->
+                                sessionServiceClient.onMeterValues(
+                                        chargePointId,
+                                        transactionId,
+                                        connectorId,
+                                        timestamp,
+                                        snapshot.energyWh(),
+                                        snapshot.powerW(),
+                                        snapshot.stateOfChargePercent()
+                                )
                         );
                     }
                 }

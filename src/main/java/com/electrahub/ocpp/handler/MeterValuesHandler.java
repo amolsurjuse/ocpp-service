@@ -2,6 +2,7 @@ package com.electrahub.ocpp.handler;
 
 import com.electrahub.ocpp.integration.SessionServiceClient;
 import com.electrahub.ocpp.service.OcppMessageHandler;
+import com.electrahub.ocpp.service.OcppTelemetryDispatcher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -14,6 +15,7 @@ import java.math.BigDecimal;
 @Slf4j
 public class MeterValuesHandler implements OcppMessageHandler {
     private final SessionServiceClient sessionServiceClient;
+    private final OcppTelemetryDispatcher telemetryDispatcher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -23,8 +25,12 @@ public class MeterValuesHandler implements OcppMessageHandler {
      * enforces component-specific rules in `com.electrahub.ocpp.handler`.
      * @param sessionServiceClient input consumed by MeterValuesHandler.
      */
-    public MeterValuesHandler(SessionServiceClient sessionServiceClient) {
+    public MeterValuesHandler(
+            SessionServiceClient sessionServiceClient,
+            OcppTelemetryDispatcher telemetryDispatcher
+    ) {
         this.sessionServiceClient = sessionServiceClient;
+        this.telemetryDispatcher = telemetryDispatcher;
     }
 
     /**
@@ -58,14 +64,16 @@ public class MeterValuesHandler implements OcppMessageHandler {
 
         log.debug("Processing meter values for transaction: {}", transactionId);
 
-            sessionServiceClient.onMeterValues(
-                    chargePointId,
-                    transactionId,
-                    connectorId,
-                    timestamp,
-                    snapshot.energyWh(),
-                    snapshot.powerW(),
-                    snapshot.stateOfChargePercent()
+            telemetryDispatcher.dispatchMeterValues(chargePointId, connectorId, () ->
+                    sessionServiceClient.onMeterValues(
+                            chargePointId,
+                            transactionId,
+                            connectorId,
+                            timestamp,
+                            snapshot.energyWh(),
+                            snapshot.powerW(),
+                            snapshot.stateOfChargePercent()
+                    )
             );
 
             ObjectNode response = objectMapper.createObjectNode();

@@ -3,6 +3,7 @@ package com.electrahub.ocpp.handler;
 import com.electrahub.ocpp.integration.SessionServiceClient;
 import com.electrahub.ocpp.integration.StationServiceClient;
 import com.electrahub.ocpp.service.OcppMessageHandler;
+import com.electrahub.ocpp.service.OcppTelemetryDispatcher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 public class StatusNotificationHandler implements OcppMessageHandler {
     private final StationServiceClient stationServiceClient;
     private final SessionServiceClient sessionServiceClient;
+    private final OcppTelemetryDispatcher telemetryDispatcher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -25,10 +27,12 @@ public class StatusNotificationHandler implements OcppMessageHandler {
      */
     public StatusNotificationHandler(
             StationServiceClient stationServiceClient,
-            SessionServiceClient sessionServiceClient
+            SessionServiceClient sessionServiceClient,
+            OcppTelemetryDispatcher telemetryDispatcher
     ) {
         this.stationServiceClient = stationServiceClient;
         this.sessionServiceClient = sessionServiceClient;
+        this.telemetryDispatcher = telemetryDispatcher;
     }
 
     /**
@@ -67,16 +71,18 @@ public class StatusNotificationHandler implements OcppMessageHandler {
             log.debug("Connector status update: chargePoint={}, connector={}, status={}, errorCode={}",
                 chargePointId, connectorId, status, errorCode);
 
-            stationServiceClient.updateConnectorStatus(chargePointId, connectorId, status);
-            sessionServiceClient.onStatusNotification(
-                    chargePointId,
-                    connectorId,
-                    status,
-                    errorCode,
-                    timestamp,
-                    transactionId,
-                    endSessionRequested
-            );
+            telemetryDispatcher.dispatchStatusNotification(chargePointId, connectorId, () -> {
+                stationServiceClient.updateConnectorStatus(chargePointId, connectorId, status);
+                sessionServiceClient.onStatusNotification(
+                        chargePointId,
+                        connectorId,
+                        status,
+                        errorCode,
+                        timestamp,
+                        transactionId,
+                        endSessionRequested
+                );
+            });
 
             ObjectNode response = objectMapper.createObjectNode();
             log.debug("StatusNotification response sent");

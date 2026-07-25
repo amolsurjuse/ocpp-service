@@ -2,8 +2,10 @@ package com.electrahub.ocpp.handler;
 
 import com.electrahub.ocpp.integration.SessionServiceClient;
 import com.electrahub.ocpp.integration.StationServiceClient;
+import com.electrahub.ocpp.service.OcppTelemetryDispatcher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import static org.mockito.Mockito.mock;
@@ -12,7 +14,11 @@ import static org.mockito.Mockito.verify;
 class StatusNotificationHandlerTest {
     private final StationServiceClient stationServiceClient = mock(StationServiceClient.class);
     private final SessionServiceClient sessionServiceClient = mock(SessionServiceClient.class);
-    private final StatusNotificationHandler handler = new StatusNotificationHandler(stationServiceClient, sessionServiceClient);
+    private final StatusNotificationHandler handler = new StatusNotificationHandler(
+            stationServiceClient,
+            sessionServiceClient,
+            new OcppTelemetryDispatcher(Runnable::run, new SimpleMeterRegistry())
+    );
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
