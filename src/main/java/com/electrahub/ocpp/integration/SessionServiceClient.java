@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClientResponseException;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -29,13 +30,13 @@ public class SessionServiceClient {
             RestClient.Builder restClientBuilder,
             @Value("${integration.session-service.base-url}") String baseUrl,
             @Value("${app.security.internal-token:${APP_SECURITY_INTERNAL_TOKEN:}}") String internalToken,
-            OcppDeviceEventPublisher eventPublisher,
+            Optional<OcppDeviceEventPublisher> eventPublisher,
             @Value("${app.ocpp-events.kafka-enabled:false}") boolean kafkaEnabled,
             @Value("${app.ocpp-events.legacy-session-callbacks-enabled:true}") boolean legacyCallbacksEnabled
     ) {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
         this.internalToken = internalToken == null ? "" : internalToken.trim();
-        this.eventPublisher = eventPublisher;
+        this.eventPublisher = eventPublisher.orElse(null);
         this.kafkaEnabled = kafkaEnabled;
         this.legacyCallbacksEnabled = legacyCallbacksEnabled;
         log.info("Session service client configured baseUrl={} internalTokenConfigured={}", baseUrl, !this.internalToken.isBlank());
