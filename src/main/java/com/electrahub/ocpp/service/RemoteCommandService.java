@@ -153,7 +153,12 @@ public class RemoteCommandService {
      * @return result produced by remoteStartTransaction.
      */
     public CompletableFuture<JsonNode> remoteStartTransaction(String chargePointId, String idTag, Integer connectorId) {
-        if (!authorizationGrants.grantRemoteStart(chargePointId, connectorId, idTag)) {
+        return remoteStartTransaction(chargePointId, idTag, connectorId, null);
+    }
+
+    public CompletableFuture<JsonNode> remoteStartTransaction(
+            String chargePointId, String idTag, Integer connectorId, String correlationId) {
+        if (!authorizationGrants.grantRemoteStart(chargePointId, connectorId, idTag, correlationId)) {
             throw new IllegalStateException("Unable to create the remote-start authorization grant");
         }
         CompletableFuture<JsonNode> command;

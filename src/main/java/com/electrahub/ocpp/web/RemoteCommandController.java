@@ -47,7 +47,7 @@ public class RemoteCommandController {
             @Valid @RequestBody RemoteStartRequest request) {
         log.info("Remote start command for {}: idTag={}", chargePointId, request.idTag());
         return commandResponse(remoteCommandService
-                .remoteStartTransaction(chargePointId, request.idTag(), request.connectorId()));
+                .remoteStartTransaction(chargePointId, request.idTag(), request.connectorId(), request.correlationId()));
     }
 
     @PostMapping("/{chargePointId}/remote-stop")

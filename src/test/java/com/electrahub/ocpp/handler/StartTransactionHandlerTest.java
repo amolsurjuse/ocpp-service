@@ -27,6 +27,8 @@ class StartTransactionHandlerTest {
     @Test
     void queuesAnAuthorizedRfidStartWithoutBlockingTheOcppResponse() throws Exception {
         when(authorizationGrants.consumeForStart("EH-US-CHG-0001", 1, "RFID-APPROVED", 810001)).thenReturn(true);
+        when(authorizationGrants.correlationForStart("EH-US-CHG-0001", "RFID-APPROVED"))
+                .thenReturn("4dd9ed1d-3d0c-4470-aa12-a78a9be56339");
         JsonNode payload = objectMapper.readTree("""
                 {
                   "connectorId": 1,
@@ -43,7 +45,7 @@ class StartTransactionHandlerTest {
         assertThat(response.path("transactionId").asInt()).isEqualTo(810001);
         verify(sessionServiceClient).onStartTransaction(
                 "EH-US-CHG-0001", 1, "RFID-APPROVED", null, 1000,
-                "2026-07-25T18:45:00Z", 810001
+                "2026-07-25T18:45:00Z", 810001, "4dd9ed1d-3d0c-4470-aa12-a78a9be56339"
         );
     }
 
@@ -81,8 +83,8 @@ class StartTransactionHandlerTest {
 
         assertThat(response.path("idTagInfo").path("status").asText()).isEqualTo("Accepted");
         verify(sessionServiceClient).onStartTransaction(
-                "EH-US-CHG-0001", 1, "CP:payment-token", null, 1000, "", 810003
+                "EH-US-CHG-0001", 1, "CP:payment-token", null, 1000, "", 810003, null
         );
-        verifyNoInteractions(authorizationGrants);
+        verify(authorizationGrants).consumeForStart("EH-US-CHG-0001", 1, "CP:payment-token", 810003);
     }
 }

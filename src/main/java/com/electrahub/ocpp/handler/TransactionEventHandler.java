@@ -84,6 +84,7 @@ public class TransactionEventHandler implements OcppMessageHandler {
                     String idTokenType = payload.path("idToken").path("type").asText(null);
                     int meterStart = integerValueOrZero(extractSnapshot(payload).energyWh());
                     if (isCardPresentToken(idTag)) {
+                        authorizationGrants.consumeForStart(chargePointId, connectorId, idTag, transactionId);
                         sessionServiceClient.onStartTransaction(
                                 chargePointId,
                                 connectorId,
@@ -91,7 +92,8 @@ public class TransactionEventHandler implements OcppMessageHandler {
                                 idTokenType,
                                 meterStart,
                                 timestamp,
-                                transactionId
+                                transactionId,
+                                authorizationGrants.correlationForStart(chargePointId, idTag)
                         );
                     } else if (!authorizationGrants.consumeForStart(chargePointId, connectorId, idTag, transactionId)) {
                         return invalidStartResponse();
@@ -103,7 +105,8 @@ public class TransactionEventHandler implements OcppMessageHandler {
                                     idTokenType,
                                     meterStart,
                                     timestamp,
-                                    transactionId
+                                    transactionId,
+                                    authorizationGrants.correlationForStart(chargePointId, idTag)
                             )
                     )) {
                         return invalidStartResponse();

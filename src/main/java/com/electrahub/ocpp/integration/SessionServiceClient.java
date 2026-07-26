@@ -92,6 +92,19 @@ public class SessionServiceClient {
             String timestamp,
             Integer transactionId
     ) {
+        onStartTransaction(chargePointId, connectorId, idTag, idTokenType, meterStart, timestamp, transactionId, null);
+    }
+
+    public void onStartTransaction(
+            String chargePointId,
+            Integer connectorId,
+            String idTag,
+            String idTokenType,
+            Integer meterStart,
+            String timestamp,
+            Integer transactionId,
+            String correlationId
+    ) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
         payload.put("connectorId", connectorId == null ? 0 : connectorId);
@@ -102,6 +115,7 @@ public class SessionServiceClient {
         payload.put("meterStart", meterStart == null ? 0 : meterStart);
         payload.put("timestamp", blankToNull(timestamp));
         payload.put("transactionId", transactionId == null ? 0 : transactionId);
+        if (correlationId != null && !correlationId.isBlank()) payload.put("correlationId", correlationId);
 
         publishIfEnabled("StartTransaction", chargePointId, connectorId, payload);
         if (!legacyCallbacksEnabled) return;

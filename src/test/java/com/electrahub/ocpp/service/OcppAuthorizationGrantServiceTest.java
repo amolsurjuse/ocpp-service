@@ -61,6 +61,16 @@ class OcppAuthorizationGrantServiceTest {
         assertThat(service.consumeForStart("EH-US-CHG-0001", 1, "RFID-UNKNOWN", 810003)).isFalse();
     }
 
+    @Test
+    void carriesRemoteStartCorrelationIntoTheBoundTransaction() {
+        String correlationId = "4dd9ed1d-3d0c-4470-aa12-a78a9be56339";
+        String binding = "grant-1|" + correlationId + ":1:810004";
+        when(values.get(bindingKey("RFID-APPROVED"))).thenReturn(binding);
+
+        assertThat(service.correlationForStart("EH-US-CHG-0001", "RFID-APPROVED"))
+                .isEqualTo(correlationId);
+    }
+
     private String bindingKey(String idTag) {
         return "ocpp:authorization-grant:start:EH-US-CHG-0001:" + tokenHash(idTag);
     }

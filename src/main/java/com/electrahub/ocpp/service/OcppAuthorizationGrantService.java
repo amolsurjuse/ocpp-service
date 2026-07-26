@@ -55,7 +55,11 @@ public class OcppAuthorizationGrantService {
     }
 
     public boolean grantRemoteStart(String chargePointId, Integer connectorId, String idTag) {
-        return store(remoteStartKey(chargePointId, connectorId, idTag));
+        return grantRemoteStart(chargePointId, connectorId, idTag, null);
+    }
+
+    public boolean grantRemoteStart(String chargePointId, Integer connectorId, String idTag, String correlationId) {
+        return store(remoteStartKey(chargePointId, connectorId, idTag), correlationId);
     }
 
     public void revokeRemoteStart(String chargePointId, Integer connectorId, String idTag) {
@@ -119,12 +123,37 @@ public class OcppAuthorizationGrantService {
         }
     }
 
+    /** Returns the session/start-attempt correlation carried by a remote-start grant. */
+    public String correlationForStart(String chargePointId, String idTag) {
+        try {
+            String binding = redisTemplate.opsForValue().get(startBindingKey(chargePointId, null, idTag));
+            if (binding == null) return null;
+            int marker = binding.indexOf('|');
+            if (marker < 0) return null;
+            int connectorSeparator = binding.lastIndexOf(':');
+            if (connectorSeparator < marker) return null;
+            int previousSeparator = binding.lastIndexOf(':', connectorSeparator - 1);
+            if (previousSeparator < marker) return null;
+            String correlation = binding.substring(marker + 1, previousSeparator);
+            return correlation.isBlank() ? null : correlation;
+        } catch (DataAccessException exception) {
+            redisFailures.increment();
+            return null;
+        }
+    }
+
     private boolean store(String key) {
+        return store(key, null);
+    }
+
+    private boolean store(String key, String correlationId) {
         if (key == null) {
             return false;
         }
         try {
-            redisTemplate.opsForValue().set(key, UUID.randomUUID().toString(), grantTtl);
+            String value = UUID.randomUUID().toString();
+            if (correlationId != null && !correlationId.isBlank()) value += "|" + correlationId.trim();
+            redisTemplate.opsForValue().set(key, value, grantTtl);
             granted.increment();
             return true;
         } catch (DataAccessException exception) {

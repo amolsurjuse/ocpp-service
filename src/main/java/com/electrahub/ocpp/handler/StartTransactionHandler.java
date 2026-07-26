@@ -71,6 +71,7 @@ public class StartTransactionHandler implements OcppMessageHandler {
                 chargePointId, connectorId, idTag);
 
             if (isCardPresentToken(idTag)) {
+                authorizationGrants.consumeForStart(chargePointId, connectorId, idTag, transactionId);
                 // Card-present sessions must be verified against the payment service before
                 // the charger is told that the transaction is accepted.
                 sessionServiceClient.onStartTransaction(
@@ -80,7 +81,8 @@ public class StartTransactionHandler implements OcppMessageHandler {
                         null,
                         meterStart,
                         timestamp,
-                        transactionId
+                        transactionId,
+                        authorizationGrants.correlationForStart(chargePointId, idTag)
                 );
                 return acceptedResponse(transactionId);
             }
@@ -99,7 +101,8 @@ public class StartTransactionHandler implements OcppMessageHandler {
                             null,
                             meterStart,
                             timestamp,
-                            transactionId
+                            transactionId,
+                            authorizationGrants.correlationForStart(chargePointId, idTag)
                     )
             );
             if (!queued) {
