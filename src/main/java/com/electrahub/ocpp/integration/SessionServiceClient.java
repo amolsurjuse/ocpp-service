@@ -1,7 +1,9 @@
 package com.electrahub.ocpp.integration;
 
 import com.electrahub.ocpp.config.InternalServiceTokenFilter;
+import com.electrahub.ocpp.messaging.OcppDeviceEventPublisher;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -18,15 +20,34 @@ public class SessionServiceClient {
 
     private final RestClient restClient;
     private final String internalToken;
+    private final OcppDeviceEventPublisher eventPublisher;
+    private final boolean kafkaEnabled;
+    private final boolean legacyCallbacksEnabled;
 
+    @Autowired
     public SessionServiceClient(
             RestClient.Builder restClientBuilder,
             @Value("${integration.session-service.base-url}") String baseUrl,
-            @Value("${app.security.internal-token:${APP_SECURITY_INTERNAL_TOKEN:}}") String internalToken
+            @Value("${app.security.internal-token:${APP_SECURITY_INTERNAL_TOKEN:}}") String internalToken,
+            OcppDeviceEventPublisher eventPublisher,
+            @Value("${app.ocpp-events.kafka-enabled:false}") boolean kafkaEnabled,
+            @Value("${app.ocpp-events.legacy-session-callbacks-enabled:true}") boolean legacyCallbacksEnabled
     ) {
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
         this.internalToken = internalToken == null ? "" : internalToken.trim();
+        this.eventPublisher = eventPublisher;
+        this.kafkaEnabled = kafkaEnabled;
+        this.legacyCallbacksEnabled = legacyCallbacksEnabled;
         log.info("Session service client configured baseUrl={} internalTokenConfigured={}", baseUrl, !this.internalToken.isBlank());
+    }
+
+    /** Test/legacy constructor; production wiring uses the feature-gated constructor above. */
+    public SessionServiceClient(RestClient.Builder restClientBuilder, String baseUrl, String internalToken) {
+        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+        this.internalToken = internalToken == null ? "" : internalToken.trim();
+        this.eventPublisher = null;
+        this.kafkaEnabled = false;
+        this.legacyCallbacksEnabled = true;
     }
 
     public boolean authorize(String idTag) {
@@ -81,6 +102,9 @@ public class SessionServiceClient {
         payload.put("timestamp", blankToNull(timestamp));
         payload.put("transactionId", transactionId == null ? 0 : transactionId);
 
+        publishIfEnabled("StartTransaction", chargePointId, connectorId, payload);
+        if (!legacyCallbacksEnabled) return;
+
         restClient.post()
                 .uri("/api/v1/sessions/ocpp/start-transaction")
                 .header(InternalServiceTokenFilter.HEADER_NAME, internalToken)
@@ -113,6 +137,10 @@ public class SessionServiceClient {
             payload.put("meterStop", meterStop == null ? 0 : meterStop);
             payload.put("timestamp", blankToNull(timestamp));
             payload.put("reason", nullSafe(reason, "Local"));
+            payload.put("transactionId", transactionId);
+
+            publishIfEnabled("StopTransaction", chargePointId, connectorId, payload);
+            if (!legacyCallbacksEnabled) return;
 
             restClient.post()
                     .uri("/api/v1/sessions/ocpp/stop-transaction/{transactionId}", transactionId)
@@ -137,21 +165,18 @@ public class SessionServiceClient {
             BigDecimal powerW,
             BigDecimal stateOfChargePercent
     ) {
-        try {
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
-            payload.put("connectorId", connectorId == null ? 0 : connectorId);
-            payload.put("timestamp", blankToNull(timestamp));
-            if (energyWh != null) {
-                payload.put("energyWh", energyWh);
-            }
-            if (powerW != null) {
-                payload.put("powerW", powerW);
-            }
-            if (stateOfChargePercent != null) {
-                payload.put("stateOfChargePercent", stateOfChargePercent);
-            }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
+        payload.put("connectorId", connectorId == null ? 0 : connectorId);
+        payload.put("transactionId", transactionId);
+        payload.put("timestamp", blankToNull(timestamp));
+        if (energyWh != null) payload.put("energyWh", energyWh);
+        if (powerW != null) payload.put("powerW", powerW);
+        if (stateOfChargePercent != null) payload.put("stateOfChargePercent", stateOfChargePercent);
+        publishIfEnabled("MeterValues", chargePointId, connectorId, payload);
+        if (!legacyCallbacksEnabled) return;
 
+        try {
             restClient.post()
                     .uri("/api/v1/sessions/ocpp/meter-values/{transactionId}", transactionId)
                     .header(InternalServiceTokenFilter.HEADER_NAME, internalToken)
@@ -179,16 +204,18 @@ public class SessionServiceClient {
             Integer transactionId,
             boolean endSessionRequested
     ) {
-        try {
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
-            payload.put("connectorId", connectorId == null ? 0 : connectorId);
-            payload.put("status", nullSafe(status, "Unavailable"));
-            payload.put("errorCode", nullSafe(errorCode, "NoError"));
-            payload.put("timestamp", blankToNull(timestamp));
-            payload.put("transactionId", transactionId);
-            payload.put("endSessionRequested", endSessionRequested);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
+        payload.put("connectorId", connectorId == null ? 0 : connectorId);
+        payload.put("status", nullSafe(status, "Unavailable"));
+        payload.put("errorCode", nullSafe(errorCode, "NoError"));
+        payload.put("timestamp", blankToNull(timestamp));
+        payload.put("transactionId", transactionId);
+        payload.put("endSessionRequested", endSessionRequested);
+        publishIfEnabled("StatusNotification", chargePointId, connectorId, payload);
+        if (!legacyCallbacksEnabled) return;
 
+        try {
             restClient.post()
                     .uri("/api/v1/sessions/ocpp/status-notification")
                     .header(InternalServiceTokenFilter.HEADER_NAME, internalToken)
@@ -240,6 +267,13 @@ public class SessionServiceClient {
             return fallback;
         }
         return value;
+    }
+
+    private void publishIfEnabled(String eventType, String chargePointId, Integer connectorId, Map<String, Object> payload) {
+        if (kafkaEnabled) {
+            if (eventPublisher == null) throw new IllegalStateException("Kafka OCPP event publisher is not configured");
+            eventPublisher.publish(eventType, chargePointId, connectorId, payload);
+        }
     }
 
     private record AuthorizationResponse(boolean authorized, String status, String reason, String certificateStatus) {

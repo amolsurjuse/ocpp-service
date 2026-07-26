@@ -172,6 +172,9 @@ public class TransactionEventHandler implements OcppMessageHandler {
             log.debug("TransactionEvent response sent for eventType: {}", eventType);
             return response;
         } catch (Exception e) {
+            if (e instanceof com.electrahub.ocpp.messaging.OcppDeviceEventPublisher.OcppEventPublishException publishFailure) {
+                throw publishFailure;
+            }
             if (SessionServiceClient.isExpectedSessionCallbackFailure(e)) {
                 log.warn("TransactionEvent callback rejected by session-service for chargePointId={} summary={}",
                         chargePointId, SessionServiceClient.callbackFailureSummary(e));

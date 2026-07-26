@@ -92,6 +92,9 @@ public class StopTransactionHandler implements OcppMessageHandler {
             log.debug("StopTransaction response: transactionId={}", transactionId);
             return response;
         } catch (Exception e) {
+            if (e instanceof com.electrahub.ocpp.messaging.OcppDeviceEventPublisher.OcppEventPublishException publishFailure) {
+                throw publishFailure;
+            }
             log.error("Error handling StopTransaction: {}", e.getMessage(), e);
             ObjectNode response = objectMapper.createObjectNode();
             return response;

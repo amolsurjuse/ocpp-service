@@ -26,6 +26,16 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      compression-type: lz4
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
 
 ocpp:
   heartbeat:
@@ -65,6 +75,14 @@ integration:
     base-url: ${STATION_SERVICE_URL:http://localhost:8081}
   session-service:
     base-url: ${SESSION_SERVICE_URL:http://localhost:8083}
+
+app:
+  ocpp-events:
+    kafka-enabled: ${OCPP_EVENT_KAFKA_ENABLED:false}
+    legacy-session-callbacks-enabled: ${OCPP_LEGACY_SESSION_CALLBACKS_ENABLED:true}
+    topic: ${OCPP_DEVICE_EVENT_TOPIC:ocpp.device-events.v2}
+    tenant-id: ${OCPP_EVENT_TENANT_ID:electrahub}
+    publish-timeout: ${OCPP_EVENT_PUBLISH_TIMEOUT:3s}
 
 management:
   endpoints:

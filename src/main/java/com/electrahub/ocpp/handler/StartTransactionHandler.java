@@ -109,6 +109,9 @@ public class StartTransactionHandler implements OcppMessageHandler {
             log.debug("StartTransaction response: transactionId={}", transactionId);
             return acceptedResponse(transactionId);
         } catch (Exception e) {
+            if (e instanceof com.electrahub.ocpp.messaging.OcppDeviceEventPublisher.OcppEventPublishException publishFailure) {
+                throw publishFailure;
+            }
             if (SessionServiceClient.isExpectedSessionCallbackFailure(e)) {
                 log.warn("StartTransaction rejected by session-service for chargePointId={} summary={}",
                         chargePointId, SessionServiceClient.callbackFailureSummary(e));

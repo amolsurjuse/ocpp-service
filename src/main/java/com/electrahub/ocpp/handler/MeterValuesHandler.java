@@ -80,6 +80,9 @@ public class MeterValuesHandler implements OcppMessageHandler {
             log.debug("MeterValues response sent for transaction: {}", transactionId);
             return response;
         } catch (Exception e) {
+            if (e instanceof com.electrahub.ocpp.messaging.OcppDeviceEventPublisher.OcppEventPublishException publishFailure) {
+                throw publishFailure;
+            }
             log.error("Error handling MeterValues: {}", e.getMessage(), e);
             ObjectNode response = objectMapper.createObjectNode();
             return response;

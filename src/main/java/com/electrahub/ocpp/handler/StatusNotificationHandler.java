@@ -88,6 +88,9 @@ public class StatusNotificationHandler implements OcppMessageHandler {
             log.debug("StatusNotification response sent");
             return response;
         } catch (Exception e) {
+            if (e instanceof com.electrahub.ocpp.messaging.OcppDeviceEventPublisher.OcppEventPublishException publishFailure) {
+                throw publishFailure;
+            }
             log.error("Error handling StatusNotification: {}", e.getMessage(), e);
             ObjectNode response = objectMapper.createObjectNode();
             return response;
