@@ -68,9 +68,38 @@ Content-Type: application/json
 
 {
   "idTag": "RFID123",
-  "connectorId": 1
+  "connectorId": 1,
+  "correlationId": "13d43a24-ecf9-4454-a048-faa32791dd2a",
+  "commandKey": "remote-start:13d43a24-ecf9-4454-a048-faa32791dd2a"
 }
 ```
+
+`commandKey` is optional. When present, it is a durable idempotency key and is
+limited to 200 letters, digits, `.`, `_`, `:`, or `-`. Session-service uses
+`remote-start:{sessionId}` while keeping the bare session UUID in
+`correlationId` for transaction binding. Reusing a key with different command
+parameters returns HTTP 409. Omitting `commandKey` preserves the legacy command
+behavior.
+
+**Remote Start Command Status (internal)**
+```bash
+GET /api/v1/ocpp/commands/remote-start/status?commandKey=remote-start%3A13d43a24-ecf9-4454-a048-faa32791dd2a
+X-ElectraHub-Internal-Token: <internal-service-token>
+```
+
+The status response has `state` `PENDING`, `TERMINAL`, or `UNKNOWN`.
+`TERMINAL` carries outcome `ACCEPTED`, `REJECTED`, or `FAILED`; `PENDING` and
+`UNKNOWN` have a null outcome. A missing key returns HTTP 404. `UNKNOWN` means
+the service cannot prove whether the charger received or accepted the command,
+so callers must reconcile charger/session events and must not retry with a new
+key automatically.
+
+For OCPP 2.0.1, `remoteStartId` is derived deterministically from `commandKey`.
+For OCPP 1.6, the protocol has no equivalent remote-start command identifier.
+The database claim therefore guarantees at-most-once sending by this CSMS, but
+a crash after the WebSocket write and before durable response recording remains
+`UNKNOWN`. The command is never reported accepted from that state and is not
+resent; reconcile the subsequent `StartTransaction` or telemetry instead.
 
 **Remote Stop Transaction**
 ```bash
@@ -166,6 +195,7 @@ GET /api/v1/ocpp/stats/connections/history?chargePointId=CP001&page=0&size=20
 | `STATION_SERVICE_URL` | http://localhost:8081 | Station service base URL |
 | `SESSION_SERVICE_URL` | http://localhost:8083 | Session service base URL |
 | `NODE_ID` | auto | Node identifier for multi-node deployments |
+| `APP_SECURITY_ID_TAG_FINGERPRINT_KEY` | required | Secret of at least 32 UTF-8 bytes used only to HMAC durable remote-start idTag fingerprints |
 
 ### Application Properties (application.yml)
 - `server.port` - 8082
@@ -234,6 +264,7 @@ GET /api/v1/ocpp/stats/connections/history?chargePointId=CP001&page=0&size=20
 - `ocpp_connections` - Active charge point connections
 - `ocpp_message_log` - Message history
 - `ocpp_pending_requests` - Waiting command responses
+- `ocpp_remote_start_commands` - Durable remote-start idempotency claims and outcomes
 
 ### Indexes
 - `idx_charge_point_id` - Fast lookup by charge point

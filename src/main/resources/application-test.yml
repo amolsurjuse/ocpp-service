@@ -38,6 +38,10 @@ integration:
   session-service:
     base-url: http://localhost:8083
 
+app:
+  security:
+    id-tag-fingerprint-key: test-only-id-tag-fingerprint-key-32-bytes
+
 management:
   endpoints:
     web:

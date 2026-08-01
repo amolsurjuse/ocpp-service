@@ -45,9 +45,25 @@ public class RemoteCommandController {
     public CompletableFuture<ResponseEntity<CommandResponse>> remoteStart(
             @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody RemoteStartRequest request) {
-        log.info("Remote start command for {}: idTag={}", chargePointId, request.idTag());
+        log.info("Remote start command for {}: connectorId={} commandKeyPresent={}",
+                chargePointId, request.connectorId(), request.commandKey() != null);
         return commandResponse(remoteCommandService
-                .remoteStartTransaction(chargePointId, request.idTag(), request.connectorId(), request.correlationId()));
+                .remoteStartTransaction(
+                        chargePointId,
+                        request.idTag(),
+                        request.connectorId(),
+                        request.correlationId(),
+                        request.commandKey()
+                ));
+    }
+
+    @GetMapping("/remote-start/status")
+    public ResponseEntity<RemoteStartCommandStatusResponse> remoteStartStatus(
+            @RequestParam("commandKey") String commandKey
+    ) {
+        return remoteCommandService.remoteStartStatus(commandKey)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping("/{chargePointId}/remote-stop")

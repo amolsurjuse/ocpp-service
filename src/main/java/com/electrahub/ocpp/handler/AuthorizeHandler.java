@@ -72,7 +72,7 @@ public class AuthorizeHandler implements OcppMessageHandler {
             }
             String certificate = payload.path("certificate").asText(null);
 
-            log.info("Authorizing idTag: {} for charge point: {}", idTag, chargePointId);
+            log.info("Authorizing identifier for charge point: {}", chargePointId);
 
             // Call session service to authorize
             SessionServiceClient.AuthorizationResult authorization = sessionServiceClient.authorize(idTag, idTokenType, certificate);
@@ -94,8 +94,7 @@ public class AuthorizeHandler implements OcppMessageHandler {
                         : authorization.certificateStatus());
             }
 
-            log.debug("Authorization response: status={} for idTag: {}",
-                tokenInfo.get("status").asText(), idTag);
+            log.debug("Authorization response: status={}", tokenInfo.get("status").asText());
             return response;
         } catch (Exception e) {
             log.error("Error handling Authorize: {}", e.getMessage(), e);

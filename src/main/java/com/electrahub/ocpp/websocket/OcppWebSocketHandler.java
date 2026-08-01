@@ -100,7 +100,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
         String chargePointId = extractChargePointId(session);
         String payload = message.getPayload();
 
-        log.debug("Received message from {}: {}", chargePointId, payload);
+        log.debug("Received OCPP message from {}: bytes={}", chargePointId, payload.length());
 
         try {
             OcppJsonRpcMessage ocppMessage = OcppJsonRpcMessage.parse(payload);
@@ -144,7 +144,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
             if (response != null) {
                 String responseJson = response.toJson();
                 connectionManager.sendMessage(session, responseJson);
-                log.debug("Sent response to {}: {}", chargePointId, responseJson);
+                log.debug("Sent OCPP response to {}: bytes={}", chargePointId, responseJson.length());
             }
         } catch (Exception e) {
             log.error("Error processing inbound {} callback from {}: {}",

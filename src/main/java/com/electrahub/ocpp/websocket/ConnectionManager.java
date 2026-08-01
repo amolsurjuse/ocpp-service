@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -13,12 +14,24 @@ import org.springframework.web.socket.WebSocketSession;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @Slf4j
 public class ConnectionManager {
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionManager.class);
+    private static final String CONNECTION_KEY_PREFIX = "ocpp:connection:";
+    private static final DefaultRedisScript<Long> DELETE_MARKER_IF_OWNER = new DefaultRedisScript<>(
+            "if redis.call('get', KEYS[1]) == ARGV[1] "
+                    + "then return redis.call('del', KEYS[1]) else return 0 end",
+            Long.class
+    );
+    private static final DefaultRedisScript<Long> REFRESH_MARKER_IF_OWNER = new DefaultRedisScript<>(
+            "if redis.call('get', KEYS[1]) == ARGV[1] "
+                    + "then return redis.call('expire', KEYS[1], ARGV[2]) else return 0 end",
+            Long.class
+    );
 
 
     private final ConcurrentHashMap<String, WebSocketSession> localSessions = new ConcurrentHashMap<>();
@@ -58,7 +71,7 @@ public class ConnectionManager {
         String normalizedChargePointId = normalizeChargePointId(chargePointId);
         localSessions.put(normalizedChargePointId, session);
         try {
-            redisTemplate.opsForValue().set("ocpp:connection:" + normalizedChargePointId, nodeId, connectionMarkerTtl);
+            redisTemplate.opsForValue().set(connectionMarkerKey(normalizedChargePointId), nodeId, connectionMarkerTtl);
         } catch (DataAccessException ex) {
             log.warn("Unable to store Redis connection marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
         }
@@ -77,7 +90,7 @@ public class ConnectionManager {
         localSessions.remove(normalizedChargePointId);
         localProtocols.remove(normalizedChargePointId);
         try {
-            redisTemplate.delete("ocpp:connection:" + normalizedChargePointId);
+            removeConnectionMarkerIfOwned(normalizedChargePointId);
         } catch (DataAccessException ex) {
             log.warn("Unable to remove Redis connection marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
         }
@@ -93,7 +106,7 @@ public class ConnectionManager {
         }
         localProtocols.remove(normalizedChargePointId);
         try {
-            redisTemplate.delete("ocpp:connection:" + normalizedChargePointId);
+            removeConnectionMarkerIfOwned(normalizedChargePointId);
         } catch (DataAccessException ex) {
             log.warn("Unable to remove Redis connection marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
         }
@@ -150,7 +163,7 @@ public class ConnectionManager {
             localSessions.remove(normalizedChargePointId, session);
             localProtocols.remove(normalizedChargePointId);
             try {
-                redisTemplate.delete("ocpp:connection:" + normalizedChargePointId);
+                removeConnectionMarkerIfOwned(normalizedChargePointId);
             } catch (DataAccessException ex) {
                 log.warn("Unable to remove stale Redis marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
             }
@@ -158,12 +171,78 @@ public class ConnectionManager {
         return connected;
     }
 
-    private void refreshConnectionMarker(String normalizedChargePointId) {
+    /**
+     * Returns true only when this process has an open local socket and still
+     * owns the matching Redis route. The Redis check is fail-closed so an HTTP
+     * request handled by another replica cannot durably claim a command that it
+     * cannot send.
+     */
+    public boolean isLocalConnectionOwner(String chargePointId) {
+        return connectionOwnership(chargePointId) == ConnectionOwnership.LOCAL_OWNER;
+    }
+
+    public ConnectionOwnership connectionOwnership(String chargePointId) {
+        String normalizedChargePointId = normalizeChargePointId(chargePointId);
+        WebSocketSession session = localSessions.get(normalizedChargePointId);
+        boolean localSocketOpen = session != null && session.isOpen();
+        if (!localSocketOpen && session != null) {
+            localSessions.remove(normalizedChargePointId, session);
+            localProtocols.remove(normalizedChargePointId);
+            try {
+                removeConnectionMarkerIfOwned(normalizedChargePointId);
+            } catch (DataAccessException ex) {
+                log.warn("Unable to remove stale Redis marker for charge point {}: {}",
+                        normalizedChargePointId, ex.getMessage());
+            }
+        }
+
+        if (localSocketOpen && refreshConnectionMarker(normalizedChargePointId)) {
+            return ConnectionOwnership.LOCAL_OWNER;
+        }
+
         try {
-            redisTemplate.expire("ocpp:connection:" + normalizedChargePointId, connectionMarkerTtl);
+            String recordedOwner = redisTemplate.opsForValue()
+                    .get(connectionMarkerKey(normalizedChargePointId));
+            if (recordedOwner == null || recordedOwner.isBlank()) {
+                return localSocketOpen
+                        ? ConnectionOwnership.ROUTE_INDETERMINATE
+                        : ConnectionOwnership.OFFLINE;
+            }
+            return nodeId.equals(recordedOwner)
+                    ? ConnectionOwnership.ROUTE_INDETERMINATE
+                    : ConnectionOwnership.REMOTE_OWNER;
+        } catch (DataAccessException ex) {
+            log.warn("Unable to resolve Redis connection owner for charge point {}: {}",
+                    normalizedChargePointId, ex.getMessage());
+            return ConnectionOwnership.ROUTE_INDETERMINATE;
+        }
+    }
+
+    private boolean refreshConnectionMarker(String normalizedChargePointId) {
+        try {
+            Long refreshed = redisTemplate.execute(
+                    REFRESH_MARKER_IF_OWNER,
+                    Collections.singletonList(connectionMarkerKey(normalizedChargePointId)),
+                    nodeId,
+                    String.valueOf(connectionMarkerTtl.toSeconds())
+            );
+            return Long.valueOf(1L).equals(refreshed);
         } catch (DataAccessException ex) {
             log.warn("Unable to refresh Redis connection marker TTL for charge point {}: {}", normalizedChargePointId, ex.getMessage());
+            return false;
         }
+    }
+
+    private void removeConnectionMarkerIfOwned(String normalizedChargePointId) {
+        redisTemplate.execute(
+                DELETE_MARKER_IF_OWNER,
+                Collections.singletonList(connectionMarkerKey(normalizedChargePointId)),
+                nodeId
+        );
+    }
+
+    private String connectionMarkerKey(String normalizedChargePointId) {
+        return CONNECTION_KEY_PREFIX + normalizedChargePointId;
     }
 
     public void setProtocol(String chargePointId, String protocol) {
@@ -208,6 +287,13 @@ public class ConnectionManager {
      */
     public String getNodeId() {
         return nodeId;
+    }
+
+    public enum ConnectionOwnership {
+        LOCAL_OWNER,
+        REMOTE_OWNER,
+        OFFLINE,
+        ROUTE_INDETERMINATE
     }
 
     private String normalizeChargePointId(String chargePointId) {

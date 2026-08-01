@@ -67,8 +67,8 @@ public class StartTransactionHandler implements OcppMessageHandler {
             String timestamp = payload.path("timestamp").asText();
             int transactionId = payload.path("transactionId").asInt(generateTransactionId());
 
-            log.info("Starting transaction for charge point: {}, connector: {}, idTag: {}",
-                chargePointId, connectorId, idTag);
+            log.info("Starting transaction for charge point: {}, connector: {}",
+                    chargePointId, connectorId);
 
             if (isCardPresentToken(idTag)) {
                 authorizationGrants.consumeForStart(chargePointId, connectorId, idTag, transactionId);

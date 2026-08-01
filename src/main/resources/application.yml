@@ -77,6 +77,8 @@ integration:
     base-url: ${SESSION_SERVICE_URL:http://localhost:8083}
 
 app:
+  security:
+    id-tag-fingerprint-key: ${APP_SECURITY_ID_TAG_FINGERPRINT_KEY:}
   ocpp-events:
     kafka-enabled: ${OCPP_EVENT_KAFKA_ENABLED:false}
     legacy-session-callbacks-enabled: ${OCPP_LEGACY_SESSION_CALLBACKS_ENABLED:true}

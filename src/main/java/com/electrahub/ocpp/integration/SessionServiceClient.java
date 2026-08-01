@@ -77,8 +77,8 @@ public class SessionServiceClient {
             }
             return new AuthorizationResult(response.authorized(), response.status(), response.reason(), response.certificateStatus());
         } catch (Exception ex) {
-            log.warn("Authorize callback failed for idTag={} summary={}", idTag, callbackFailureSummary(ex));
-            log.debug("Authorize callback failure details for idTag={}", idTag, ex);
+            log.warn("Authorize callback failed: summary={}", callbackFailureSummary(ex));
+            log.debug("Authorize callback failure details", ex);
             return new AuthorizationResult(false, "Invalid", callbackFailureSummary(ex), "NoCertificateAvailable");
         }
     }

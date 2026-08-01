@@ -6,6 +6,7 @@ public record RemoteStartRequest(
         @NotBlank(message = "idTag is required")
         String idTag,
         Integer connectorId,
-        String correlationId
+        String correlationId,
+        String commandKey
 ) {
 }

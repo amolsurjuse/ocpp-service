@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -29,6 +30,21 @@ public class RestExceptionHandler {
             request.getDescription(false).replace("uri=", "")
         );
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(apiError);
+    }
+
+    @ExceptionHandler(ChargePointRouteUnavailableException.class)
+    public ResponseEntity<ApiError> handleChargePointRouteUnavailable(
+            ChargePointRouteUnavailableException ex,
+            WebRequest request) {
+        ApiError apiError = new ApiError(
+            HttpStatus.SERVICE_UNAVAILABLE.value(),
+            "CHARGE_POINT_ROUTE_UNAVAILABLE",
+            ex.getMessage(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, "1")
+                .body(apiError);
     }
 
     @ExceptionHandler(OcppCommandTimeoutException.class)
@@ -57,6 +73,19 @@ public class RestExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(apiError);
     }
 
+    @ExceptionHandler(RemoteStartCommandKeyConflictException.class)
+    public ResponseEntity<ApiError> handleRemoteStartCommandKeyConflict(
+            RemoteStartCommandKeyConflictException ex,
+            WebRequest request) {
+        ApiError apiError = new ApiError(
+            HttpStatus.CONFLICT.value(),
+            "REMOTE_START_COMMAND_KEY_CONFLICT",
+            ex.getMessage(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(apiError);
+    }
+
     @ExceptionHandler({CompletionException.class, ExecutionException.class})
     public ResponseEntity<ApiError> handleAsyncCommandFailure(Exception ex, WebRequest request) {
         Throwable cause = ex;
@@ -66,6 +95,9 @@ public class RestExceptionHandler {
         }
         if (cause instanceof ChargePointNotConnectedException notConnected) {
             return handleChargePointNotConnected(notConnected, request);
+        }
+        if (cause instanceof ChargePointRouteUnavailableException routeUnavailable) {
+            return handleChargePointRouteUnavailable(routeUnavailable, request);
         }
         if (cause instanceof OcppCommandTimeoutException timeout) {
             return handleOcppCommandTimeout(timeout, request);
