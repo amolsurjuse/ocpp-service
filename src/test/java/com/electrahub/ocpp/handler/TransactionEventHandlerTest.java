@@ -151,4 +151,65 @@ class TransactionEventHandlerTest {
                 null
         );
     }
+
+    @Test
+    void stringTransactionIdUsesStableSimulatorCompatibleCorrelation() throws Exception {
+        JsonNode payload = objectMapper.readTree("""
+                {
+                  "eventType": "Updated",
+                  "timestamp": "2026-08-03T21:23:21Z",
+                  "triggerReason": "MeterValuePeriodic",
+                  "evse": { "id": 1 },
+                  "transactionInfo": {
+                    "transactionId": "b80c3540-fd8b-479e-80ef-833b209c5609"
+                  },
+                  "meterValue": [{
+                    "timestamp": "2026-08-03T21:23:21Z",
+                    "sampledValue": [{
+                      "value": 277,
+                      "measurand": "Energy.Active.Import.Register",
+                      "unitOfMeasure": { "unit": "Wh" }
+                    }]
+                  }]
+                }
+                """);
+
+        handler.handle("EH-SFO-CHG-001", payload);
+
+        verify(sessionServiceClient).onMeterValues(
+                "EH-SFO-CHG-001",
+                818682,
+                1,
+                "2026-08-03T21:23:21Z",
+                new java.math.BigDecimal("277"),
+                null,
+                null
+        );
+    }
+
+    @Test
+    void chargingStateWithoutTransactionIdDoesNotInventCorrelation() throws Exception {
+        JsonNode payload = objectMapper.readTree("""
+                {
+                  "eventType": "Updated",
+                  "timestamp": "2026-08-03T21:23:21Z",
+                  "triggerReason": "ChargingStateChanged",
+                  "evse": { "id": 1 },
+                  "transactionInfo": { "chargingState": "Charging" },
+                  "customData": { "errorCode": "NoError" }
+                }
+                """);
+
+        handler.handle("EH-SFO-CHG-001", payload);
+
+        verify(sessionServiceClient).onStatusNotification(
+                "EH-SFO-CHG-001",
+                1,
+                "Charging",
+                "NoError",
+                "2026-08-03T21:23:21Z",
+                null,
+                false
+        );
+    }
 }

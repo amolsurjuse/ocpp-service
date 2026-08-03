@@ -11,7 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 
 @Component
 @Slf4j
@@ -67,17 +67,22 @@ public class TransactionEventHandler implements OcppMessageHandler {
             String triggerReason = payload.path("triggerReason").asText();
             int connectorId = resolveConnectorId(payload);
 
-        if ("Started".equalsIgnoreCase(eventType) || "Ended".equalsIgnoreCase(eventType)) {
-            log.info("Transaction lifecycle event from {}: eventType={}, trigger={}", chargePointId, eventType, triggerReason);
-        } else {
-            log.debug("Transaction event from {}: eventType={}, trigger={}", chargePointId, eventType, triggerReason);
-        }
+            if ("Started".equalsIgnoreCase(eventType) || "Ended".equalsIgnoreCase(eventType)) {
+                log.info("Transaction lifecycle event from {}: eventType={}, trigger={}", chargePointId, eventType, triggerReason);
+            } else {
+                log.debug("Transaction event from {}: eventType={}, trigger={}", chargePointId, eventType, triggerReason);
+            }
 
             JsonNode transactionInfo = payload.path("transactionInfo");
-            int transactionId = transactionInfo.path("transactionId").asInt(generateTransactionId());
+            Integer transactionId = resolveTransactionId(transactionInfo.path("transactionId"));
 
             switch (eventType) {
                 case "Started" -> {
+                    if (transactionId == null) {
+                        log.warn("Ignoring TransactionEvent Started without transactionId from {} connector {}",
+                                chargePointId, connectorId);
+                        return invalidStartResponse();
+                    }
                     String idTag = payload.path("idToken").path("idToken").asText(
                             payload.path("idTag").asText("")
                     );
@@ -131,20 +136,30 @@ public class TransactionEventHandler implements OcppMessageHandler {
                         );
                     } else {
                         MeterSnapshot snapshot = extractSnapshot(payload);
-                        telemetryDispatcher.dispatchMeterValues(chargePointId, connectorId, () ->
-                                sessionServiceClient.onMeterValues(
-                                        chargePointId,
-                                        transactionId,
-                                        connectorId,
-                                        timestamp,
-                                        snapshot.energyWh(),
-                                        snapshot.powerW(),
-                                        snapshot.stateOfChargePercent()
-                                )
-                        );
+                        if (transactionId == null) {
+                            log.warn("Ignoring TransactionEvent meter update without transactionId from {} connector {}",
+                                    chargePointId, connectorId);
+                        } else {
+                            telemetryDispatcher.dispatchMeterValues(chargePointId, connectorId, () ->
+                                    sessionServiceClient.onMeterValues(
+                                            chargePointId,
+                                            transactionId,
+                                            connectorId,
+                                            timestamp,
+                                            snapshot.energyWh(),
+                                            snapshot.powerW(),
+                                            snapshot.stateOfChargePercent()
+                                    )
+                            );
+                        }
                     }
                 }
                 case "Ended" -> {
+                    if (transactionId == null) {
+                        log.warn("Ignoring TransactionEvent Ended without transactionId from {} connector {}",
+                                chargePointId, connectorId);
+                        break;
+                    }
                     MeterSnapshot snapshot = extractSnapshot(payload);
                     int meterStop = integerValueOrZero(snapshot.energyWh());
                     String stoppedReason = resolveStoppedReason(payload, triggerReason);
@@ -261,9 +276,29 @@ public class TransactionEventHandler implements OcppMessageHandler {
         return idTag != null && idTag.regionMatches(true, 0, "CP:", 0, 3);
     }
 
-    private int generateTransactionId() {
-        long nowMillis = Instant.now().toEpochMilli();
-        return (int) (nowMillis % Integer.MAX_VALUE);
+    private Integer resolveTransactionId(JsonNode transactionIdNode) {
+        if (transactionIdNode == null || transactionIdNode.isMissingNode() || transactionIdNode.isNull()) {
+            return null;
+        }
+        String rawTransactionId = transactionIdNode.asText("").trim();
+        if (rawTransactionId.isEmpty()) {
+            return null;
+        }
+        try {
+            int numericTransactionId = Integer.parseInt(rawTransactionId);
+            return numericTransactionId > 0 ? numericTransactionId : null;
+        } catch (NumberFormatException ignored) {
+            return stableTransactionId(rawTransactionId);
+        }
+    }
+
+    private int stableTransactionId(String rawTransactionId) {
+        int hash = 0x811c9dc5;
+        for (byte value : rawTransactionId.getBytes(StandardCharsets.UTF_8)) {
+            hash ^= value & 0xff;
+            hash *= 0x01000193;
+        }
+        return (int) (Integer.toUnsignedLong(hash) % 900_000L) + 100_000;
     }
 
     private record MeterSnapshot(BigDecimal energyWh, BigDecimal powerW, BigDecimal stateOfChargePercent) {
