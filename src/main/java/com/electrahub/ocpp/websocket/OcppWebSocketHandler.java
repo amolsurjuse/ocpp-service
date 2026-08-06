@@ -249,7 +249,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void touchConnectionActivity(String chargePointId, WebSocketSession session) {
-        boolean routeMissing = !connectionManager.isConnected(chargePointId);
+        boolean routeMissing = !connectionManager.isLocallyConnected(chargePointId);
         if (routeMissing) {
             connectionManager.registerConnection(chargePointId, session);
         }

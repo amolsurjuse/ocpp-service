@@ -45,6 +45,7 @@ public class RemoteCommandService {
     private final OcppAuthorizationGrantService authorizationGrants;
     private final RemoteStartCommandStore remoteStartCommands;
     private final IdTagFingerprintService idTagFingerprints;
+    private final OcppClusterCommandRouter clusterCommandRouter;
     private final MeterRegistry meterRegistry;
     private final ConcurrentHashMap<String, CompletableFuture<JsonNode>> pendingResponses = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -63,6 +64,7 @@ public class RemoteCommandService {
             RemoteStartCommandStore remoteStartCommands,
             IdTagFingerprintService idTagFingerprints,
             MeterRegistry meterRegistry,
+            OcppClusterCommandRouter clusterCommandRouter,
             @Value("${ocpp.message.response-timeout-seconds:30}") int responseTimeoutSeconds
     ) {
         LOGGER.info(" Entering RemoteCommandService#RemoteCommandService");
@@ -73,6 +75,7 @@ public class RemoteCommandService {
         this.idTagFingerprints = idTagFingerprints;
         this.meterRegistry = meterRegistry;
         this.responseTimeoutSeconds = Math.max(1, responseTimeoutSeconds);
+        this.clusterCommandRouter = clusterCommandRouter;
         Gauge.builder("electrahub.ocpp.remote_command.pending", pendingResponses, responses -> responses.size())
                 .description("OCPP commands awaiting a charge-point response")
                 .register(meterRegistry);
@@ -98,10 +101,43 @@ public class RemoteCommandService {
             JsonNode payload,
             String messageId
     ) {
-        if (!connectionManager.isConnected(chargePointId)) {
+        ConnectionManager.ConnectionOwnership ownership = connectionManager.connectionOwnership(chargePointId);
+        if (ownership == ConnectionManager.ConnectionOwnership.LOCAL_OWNER) {
+            return sendCommandLocally(chargePointId, action, payload, messageId);
+        }
+        if (ownership == ConnectionManager.ConnectionOwnership.OFFLINE) {
             throw new ChargePointNotConnectedException("Charge point not connected: " + chargePointId);
         }
+        if (ownership == ConnectionManager.ConnectionOwnership.ROUTE_INDETERMINATE) {
+            throw new ChargePointRouteUnavailableException(
+                    "Unable to determine the owning OCPP node; retry the request");
+        }
 
+        String ownerNodeId = connectionManager.getOwnerNodeId(chargePointId)
+                .orElseThrow(() -> new ChargePointRouteUnavailableException(
+                        "The owning OCPP node is no longer available; retry the request"));
+        if (!clusterCommandRouter.isEnabled()) {
+            throw new ChargePointRouteUnavailableException(
+                    "Charge point connection is owned by another OCPP node; cluster routing is disabled");
+        }
+        log.info("Routing command for {} to owning OCPP node {}: action={}",
+                chargePointId, ownerNodeId, action);
+        return clusterCommandRouter.route(ownerNodeId, chargePointId, action, payload, messageId);
+    }
+
+    public CompletableFuture<JsonNode> sendCommandLocally(String chargePointId, String action, JsonNode payload) {
+        return sendCommandLocally(chargePointId, action, payload, UUID.randomUUID().toString());
+    }
+
+    public CompletableFuture<JsonNode> sendCommandLocally(
+            String chargePointId,
+            String action,
+            JsonNode payload,
+            String messageId
+    ) {
+        if (!connectionManager.isLocalConnectionOwner(chargePointId)) {
+            throw new ChargePointNotConnectedException("Charge point not connected on this node: " + chargePointId);
+        }
         CompletableFuture<JsonNode> future = new CompletableFuture<>();
         Timer.Sample commandTimer = Timer.start(meterRegistry);
 
@@ -207,7 +243,9 @@ public class RemoteCommandService {
             throw new ChargePointNotConnectedException(
                     "Charge point not connected: " + chargePointId);
         }
-        if (connectionOwnership != ConnectionManager.ConnectionOwnership.LOCAL_OWNER) {
+        if (connectionOwnership == ConnectionManager.ConnectionOwnership.ROUTE_INDETERMINATE
+                || (connectionOwnership == ConnectionManager.ConnectionOwnership.REMOTE_OWNER
+                && !clusterCommandRouter.isEnabled())) {
             throw new ChargePointRouteUnavailableException(
                     "Charge point connection is owned by another OCPP node; retry the request");
         }

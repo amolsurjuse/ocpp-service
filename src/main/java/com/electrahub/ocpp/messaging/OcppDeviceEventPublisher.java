@@ -6,6 +6,7 @@ import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -25,13 +26,13 @@ public class OcppDeviceEventPublisher {
     private final Duration publishTimeout;
 
     public OcppDeviceEventPublisher(
-        KafkaTemplate<String, String> kafkaTemplate,
+        ObjectProvider<KafkaTemplate<String, String>> kafkaTemplate,
         ObjectMapper objectMapper,
         @Value("${app.ocpp-events.topic:ocpp.device-events.v2}") String topic,
         @Value("${app.ocpp-events.tenant-id:electrahub}") String tenantId,
         @Value("${app.ocpp-events.publish-timeout:3s}") Duration publishTimeout
     ) {
-        this.kafkaTemplate = kafkaTemplate;
+        this.kafkaTemplate = kafkaTemplate.getIfAvailable();
         this.objectMapper = objectMapper;
         this.topic = topic;
         this.tenantId = tenantId;
@@ -40,6 +41,10 @@ public class OcppDeviceEventPublisher {
 
     /** Publishes synchronously so the OCPP call is acknowledged only after Kafka durability. */
     public UUID publish(String eventType, String chargePointId, Integer connectorId, Map<String, Object> payload) {
+        if (kafkaTemplate == null) {
+            throw new OcppEventPublishException(
+                    "Kafka publisher is unavailable; refusing to acknowledge a non-durable OCPP event", null);
+        }
         UUID eventId = UUID.randomUUID();
         String connectorKey = connectorKey(chargePointId, connectorId);
         Map<String, Object> envelope = new LinkedHashMap<>();

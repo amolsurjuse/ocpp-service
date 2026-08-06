@@ -18,6 +18,7 @@ public class OcppWebSocketConfig implements WebSocketConfigurer {
     private static final Logger LOGGER = LoggerFactory.getLogger(OcppWebSocketConfig.class);
 
     private final OcppWebSocketHandler ocppWebSocketHandler;
+    private final OcppDrainHandshakeInterceptor drainHandshakeInterceptor;
 
     /**
      * Executes ocpp web socket config for `OcppWebSocketConfig`.
@@ -26,10 +27,14 @@ public class OcppWebSocketConfig implements WebSocketConfigurer {
      * enforces component-specific rules in `com.electrahub.ocpp.websocket`.
      * @param ocppWebSocketHandler input consumed by OcppWebSocketConfig.
      */
-    public OcppWebSocketConfig(OcppWebSocketHandler ocppWebSocketHandler) {
+    public OcppWebSocketConfig(
+            OcppWebSocketHandler ocppWebSocketHandler,
+            OcppDrainHandshakeInterceptor drainHandshakeInterceptor
+    ) {
         LOGGER.info(" Entering OcppWebSocketConfig#OcppWebSocketConfig");
         LOGGER.debug(" Entering OcppWebSocketConfig#OcppWebSocketConfig with debug context");
         this.ocppWebSocketHandler = ocppWebSocketHandler;
+        this.drainHandshakeInterceptor = drainHandshakeInterceptor;
     }
 
     @Value("${ocpp.websocket.max-text-message-size:65536}")
@@ -48,6 +53,7 @@ public class OcppWebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(ocppWebSocketHandler, "/ws/ocpp/{chargePointId}")
+                .addInterceptors(drainHandshakeInterceptor)
                 .setAllowedOrigins("*");
     }
 

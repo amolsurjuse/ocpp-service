@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.Duration;
 import java.util.Map;
@@ -20,9 +21,11 @@ class OcppDeviceEventPublisherTest {
     @Test
     void publishesVersionedEnvelopeUsingCanonicalConnectorKey() throws Exception {
         @SuppressWarnings("unchecked") KafkaTemplate<String, String> kafka = mock(KafkaTemplate.class);
+        @SuppressWarnings("unchecked") ObjectProvider<KafkaTemplate<String, String>> kafkaProvider = mock(ObjectProvider.class);
+        when(kafkaProvider.getIfAvailable()).thenReturn(kafka);
         when(kafka.send(anyString(), anyString(), anyString())).thenReturn(CompletableFuture.completedFuture(null));
         OcppDeviceEventPublisher publisher = new OcppDeviceEventPublisher(
-            kafka, new ObjectMapper().findAndRegisterModules(), "ocpp.device-events.v2", "tenant-a", Duration.ofSeconds(1));
+            kafkaProvider, new ObjectMapper().findAndRegisterModules(), "ocpp.device-events.v2", "tenant-a", Duration.ofSeconds(1));
 
         publisher.publish("MeterValues", "CP-7", 2, Map.of("transactionId", 41));
 

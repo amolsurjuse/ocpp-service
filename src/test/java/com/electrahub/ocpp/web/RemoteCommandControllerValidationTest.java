@@ -3,6 +3,7 @@ package com.electrahub.ocpp.web;
 import com.electrahub.ocpp.exception.RestExceptionHandler;
 import com.electrahub.ocpp.service.IdTagFingerprintService;
 import com.electrahub.ocpp.service.OcppAuthorizationGrantService;
+import com.electrahub.ocpp.service.OcppClusterCommandRouter;
 import com.electrahub.ocpp.service.RemoteCommandService;
 import com.electrahub.ocpp.service.RemoteStartCommandStore;
 import com.electrahub.ocpp.websocket.ConnectionManager;
@@ -67,6 +68,7 @@ class RemoteCommandControllerValidationTest {
                 mock(RemoteStartCommandStore.class),
                 new IdTagFingerprintService("test-only-id-tag-fingerprint-key-32-bytes"),
                 new SimpleMeterRegistry(),
+                mock(OcppClusterCommandRouter.class),
                 30
         );
         return standaloneSetup(new RemoteCommandController(service, new ObjectMapper()))

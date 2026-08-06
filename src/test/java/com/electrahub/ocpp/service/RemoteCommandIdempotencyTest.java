@@ -48,6 +48,7 @@ class RemoteCommandIdempotencyTest {
             commandStore,
             idTagFingerprints,
             new SimpleMeterRegistry(),
+            mock(OcppClusterCommandRouter.class),
             30
     );
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -81,6 +82,7 @@ class RemoteCommandIdempotencyTest {
         when(connectionManager.getProtocol("CP-201")).thenReturn("OCPP201");
         when(connectionManager.connectionOwnership("CP-201"))
                 .thenReturn(ConnectionManager.ConnectionOwnership.LOCAL_OWNER);
+        when(connectionManager.isLocalConnectionOwner("CP-201")).thenReturn(true);
         when(connectionManager.isConnected("CP-201")).thenReturn(true);
         when(authorizationGrants.grantRemoteStart("CP-201", 1, "RFID-1", "13d43a24-ecf9-4454-a048-faa32791dd2a"))
                 .thenReturn(true);
@@ -129,7 +131,9 @@ class RemoteCommandIdempotencyTest {
 
     @Test
     void callersWithoutCommandKeyRetainLegacyNonDurablePath() throws Exception {
-        when(connectionManager.isConnected("CP-16")).thenReturn(true);
+        when(connectionManager.connectionOwnership("CP-16"))
+                .thenReturn(ConnectionManager.ConnectionOwnership.LOCAL_OWNER);
+        when(connectionManager.isLocalConnectionOwner("CP-16")).thenReturn(true);
         when(connectionManager.getProtocol("CP-16")).thenReturn("OCPP16J");
         when(authorizationGrants.grantRemoteStart("CP-16", 1, "RFID-1", "session-legacy"))
                 .thenReturn(true);

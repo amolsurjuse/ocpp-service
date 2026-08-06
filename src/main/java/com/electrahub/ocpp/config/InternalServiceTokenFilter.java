@@ -49,7 +49,8 @@ public class InternalServiceTokenFilter extends OncePerRequestFilter {
 
     private boolean requiresInternalToken(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path != null && path.startsWith("/api/v1/ocpp/commands/");
+        return path != null && (path.startsWith("/api/v1/ocpp/commands/")
+                || path.startsWith("/api/v1/ocpp/internal/"));
     }
 
     private boolean matches(String providedToken) {

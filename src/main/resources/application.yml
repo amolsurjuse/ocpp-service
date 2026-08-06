@@ -79,6 +79,11 @@ integration:
 app:
   security:
     id-tag-fingerprint-key: ${APP_SECURITY_ID_TAG_FINGERPRINT_KEY:}
+  ocpp:
+    redis:
+      connection-marker-ttl-seconds: ${OCPP_CONNECTION_MARKER_TTL_SECONDS:120}
+    cluster-routing:
+      enabled: ${OCPP_CLUSTER_ROUTING_ENABLED:false}
   ocpp-events:
     kafka-enabled: ${OCPP_EVENT_KAFKA_ENABLED:false}
     legacy-session-callbacks-enabled: ${OCPP_LEGACY_SESSION_CALLBACKS_ENABLED:true}
