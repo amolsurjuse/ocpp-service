@@ -83,7 +83,8 @@ public class OcppMessageRouter {
         }
 
         try {
-            com.fasterxml.jackson.databind.JsonNode response = handler.handle(chargePointId, message.getPayload());
+            com.fasterxml.jackson.databind.JsonNode response = handler.handle(
+                    chargePointId, message.getMessageId(), message.getPayload());
             return OcppJsonRpcMessage.createCallResult(message.getMessageId(), response);
         } catch (Exception e) {
             log.error("Error handling action {}: {}", action, e.getMessage(), e);

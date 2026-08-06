@@ -38,7 +38,9 @@ class StopTransactionHandlerTest {
                 1,
                 1201500,
                 "2026-07-08T22:45:00Z",
-                "EVDisconnected"
+                "EVDisconnected",
+                null,
+                null
         );
     }
 }

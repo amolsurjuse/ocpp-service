@@ -46,7 +46,9 @@ class MeterValuesHandlerTest {
                 "2026-07-15T21:18:50Z",
                 new BigDecimal("1200122"),
                 new BigDecimal("44000"),
-                new BigDecimal("42")
+                new BigDecimal("42"),
+                null,
+                null
         );
     }
 
@@ -73,6 +75,8 @@ class MeterValuesHandlerTest {
                 1,
                 "2026-07-15T21:18:50Z",
                 new BigDecimal("1200122"),
+                null,
+                null,
                 null,
                 null
         );

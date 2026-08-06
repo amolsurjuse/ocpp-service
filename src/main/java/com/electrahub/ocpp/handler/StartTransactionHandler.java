@@ -60,6 +60,11 @@ public class StartTransactionHandler implements OcppMessageHandler {
      */
     @Override
     public JsonNode handle(String chargePointId, JsonNode payload) {
+        return handle(chargePointId, null, payload);
+    }
+
+    @Override
+    public JsonNode handle(String chargePointId, String sourceMessageId, JsonNode payload) {
         try {
             int connectorId = payload.path("connectorId").asInt();
             String idTag = payload.path("idTag").asText();
@@ -82,7 +87,8 @@ public class StartTransactionHandler implements OcppMessageHandler {
                         meterStart,
                         timestamp,
                         transactionId,
-                        authorizationGrants.correlationForStart(chargePointId, idTag)
+                        authorizationGrants.correlationForStart(chargePointId, idTag),
+                        sourceMessageId
                 );
                 return acceptedResponse(transactionId);
             }
@@ -102,7 +108,8 @@ public class StartTransactionHandler implements OcppMessageHandler {
                             meterStart,
                             timestamp,
                             transactionId,
-                            authorizationGrants.correlationForStart(chargePointId, idTag)
+                            authorizationGrants.correlationForStart(chargePointId, idTag),
+                            sourceMessageId
                     )
             );
             if (!queued) {

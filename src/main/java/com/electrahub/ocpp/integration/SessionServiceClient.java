@@ -105,6 +105,15 @@ public class SessionServiceClient {
             Integer transactionId,
             String correlationId
     ) {
+        onStartTransaction(chargePointId, connectorId, idTag, idTokenType, meterStart,
+                timestamp, transactionId, correlationId, null);
+    }
+
+    public void onStartTransaction(
+            String chargePointId, Integer connectorId, String idTag, String idTokenType,
+            Integer meterStart, String timestamp, Integer transactionId,
+            String correlationId, String sourceMessageId
+    ) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
         payload.put("connectorId", connectorId == null ? 0 : connectorId);
@@ -117,7 +126,7 @@ public class SessionServiceClient {
         payload.put("transactionId", transactionId == null ? 0 : transactionId);
         if (correlationId != null && !correlationId.isBlank()) payload.put("correlationId", correlationId);
 
-        publishIfEnabled("StartTransaction", chargePointId, connectorId, payload);
+        publishIfEnabled("StartTransaction", chargePointId, connectorId, sourceMessageId, payload);
         if (!legacyCallbacksEnabled) return;
 
         restClient.post()
@@ -141,6 +150,21 @@ public class SessionServiceClient {
             String timestamp,
             String reason
     ) {
+        onStopTransaction(transactionId, chargePointId, connectorId, meterStop, timestamp, reason, null);
+    }
+
+    public void onStopTransaction(
+            int transactionId, String chargePointId, Integer connectorId, Integer meterStop,
+            String timestamp, String reason, String sourceMessageId
+    ) {
+        onStopTransaction(transactionId, chargePointId, connectorId, meterStop, timestamp,
+                reason, sourceMessageId, null);
+    }
+
+    public void onStopTransaction(
+            int transactionId, String chargePointId, Integer connectorId, Integer meterStop,
+            String timestamp, String reason, String sourceMessageId, Object signedMeterValues
+    ) {
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
             if (chargePointId != null && !chargePointId.isBlank()) {
@@ -153,8 +177,9 @@ public class SessionServiceClient {
             payload.put("timestamp", blankToNull(timestamp));
             payload.put("reason", nullSafe(reason, "Local"));
             payload.put("transactionId", transactionId);
+            if (signedMeterValues != null) payload.put("signedMeterValues", signedMeterValues);
 
-            publishIfEnabled("StopTransaction", chargePointId, connectorId, payload);
+            publishIfEnabled("StopTransaction", chargePointId, connectorId, sourceMessageId, payload);
             if (!legacyCallbacksEnabled) return;
 
             restClient.post()
@@ -180,6 +205,15 @@ public class SessionServiceClient {
             BigDecimal powerW,
             BigDecimal stateOfChargePercent
     ) {
+        onMeterValues(chargePointId, transactionId, connectorId, timestamp,
+                energyWh, powerW, stateOfChargePercent, null, null);
+    }
+
+    public void onMeterValues(
+            String chargePointId, int transactionId, Integer connectorId, String timestamp,
+            BigDecimal energyWh, BigDecimal powerW, BigDecimal stateOfChargePercent,
+            String sourceMessageId, Object signedMeterValues
+    ) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
         payload.put("connectorId", connectorId == null ? 0 : connectorId);
@@ -188,7 +222,8 @@ public class SessionServiceClient {
         if (energyWh != null) payload.put("energyWh", energyWh);
         if (powerW != null) payload.put("powerW", powerW);
         if (stateOfChargePercent != null) payload.put("stateOfChargePercent", stateOfChargePercent);
-        publishIfEnabled("MeterValues", chargePointId, connectorId, payload);
+        if (signedMeterValues != null) payload.put("signedMeterValues", signedMeterValues);
+        publishIfEnabled("MeterValues", chargePointId, connectorId, sourceMessageId, payload);
         if (!legacyCallbacksEnabled) return;
 
         try {
@@ -219,6 +254,15 @@ public class SessionServiceClient {
             Integer transactionId,
             boolean endSessionRequested
     ) {
+        onStatusNotification(chargePointId, connectorId, status, errorCode, timestamp,
+                transactionId, endSessionRequested, null);
+    }
+
+    public void onStatusNotification(
+            String chargePointId, Integer connectorId, String status, String errorCode,
+            String timestamp, Integer transactionId, boolean endSessionRequested,
+            String sourceMessageId
+    ) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("chargePointId", nullSafe(chargePointId, "unknown"));
         payload.put("connectorId", connectorId == null ? 0 : connectorId);
@@ -227,7 +271,7 @@ public class SessionServiceClient {
         payload.put("timestamp", blankToNull(timestamp));
         payload.put("transactionId", transactionId);
         payload.put("endSessionRequested", endSessionRequested);
-        publishIfEnabled("StatusNotification", chargePointId, connectorId, payload);
+        publishIfEnabled("StatusNotification", chargePointId, connectorId, sourceMessageId, payload);
         if (!legacyCallbacksEnabled) return;
 
         try {
@@ -285,9 +329,14 @@ public class SessionServiceClient {
     }
 
     private void publishIfEnabled(String eventType, String chargePointId, Integer connectorId, Map<String, Object> payload) {
+        publishIfEnabled(eventType, chargePointId, connectorId, null, payload);
+    }
+
+    private void publishIfEnabled(String eventType, String chargePointId, Integer connectorId,
+                                  String sourceMessageId, Map<String, Object> payload) {
         if (kafkaEnabled) {
             if (eventPublisher == null) throw new IllegalStateException("Kafka OCPP event publisher is not configured");
-            eventPublisher.publish(eventType, chargePointId, connectorId, payload);
+            eventPublisher.publish(eventType, chargePointId, connectorId, sourceMessageId, payload);
         }
     }
 

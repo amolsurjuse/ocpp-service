@@ -44,7 +44,8 @@ class StatusNotificationHandlerTest {
                 "NoError",
                 "2026-07-13T20:15:25Z",
                 269349,
-                true
+                true,
+                null
         );
     }
 }

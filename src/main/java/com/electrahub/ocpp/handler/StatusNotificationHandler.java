@@ -58,6 +58,11 @@ public class StatusNotificationHandler implements OcppMessageHandler {
      */
     @Override
     public JsonNode handle(String chargePointId, JsonNode payload) {
+        return handle(chargePointId, null, payload);
+    }
+
+    @Override
+    public JsonNode handle(String chargePointId, String sourceMessageId, JsonNode payload) {
         try {
             int connectorId = payload.path("connectorId").asInt();
             String status = payload.path("status").asText();
@@ -80,7 +85,8 @@ public class StatusNotificationHandler implements OcppMessageHandler {
                         errorCode,
                         timestamp,
                         transactionId,
-                        endSessionRequested
+                        endSessionRequested,
+                        sourceMessageId
                 );
             });
 

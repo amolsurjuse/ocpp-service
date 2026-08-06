@@ -24,4 +24,9 @@ public interface OcppMessageHandler {
      */
     JsonNode handle(String chargePointId, JsonNode payload);
 
+    /** Carries the charger-supplied JSON-RPC identity to durable handlers. */
+    default JsonNode handle(String chargePointId, String sourceMessageId, JsonNode payload) {
+        return handle(chargePointId, payload);
+    }
+
 }

@@ -54,6 +54,11 @@ public class StopTransactionHandler implements OcppMessageHandler {
      */
     @Override
     public JsonNode handle(String chargePointId, JsonNode payload) {
+        return handle(chargePointId, null, payload);
+    }
+
+    @Override
+    public JsonNode handle(String chargePointId, String sourceMessageId, JsonNode payload) {
         try {
             int transactionId = payload.path("transactionId").asInt();
             int connectorId = payload.path("connectorId").asInt(0);
@@ -71,7 +76,9 @@ public class StopTransactionHandler implements OcppMessageHandler {
                             resolvedConnectorId,
                             meterStop,
                             timestamp,
-                            reason
+                            reason,
+                            sourceMessageId,
+                            extractSignedMeterValues(payload)
                     )
             );
             if (!queued) {
@@ -83,7 +90,9 @@ public class StopTransactionHandler implements OcppMessageHandler {
                         resolvedConnectorId,
                         meterStop,
                         timestamp,
-                        reason
+                        reason,
+                        sourceMessageId,
+                        extractSignedMeterValues(payload)
                 );
             }
 
@@ -99,6 +108,18 @@ public class StopTransactionHandler implements OcppMessageHandler {
             ObjectNode response = objectMapper.createObjectNode();
             return response;
         }
+    }
+
+    private Object extractSignedMeterValues(JsonNode payload) {
+        var signed = objectMapper.createArrayNode();
+        JsonNode transactionData = payload.path("transactionData");
+        if (transactionData.isArray()) {
+            transactionData.forEach(meterValue -> meterValue.path("sampledValue").forEach(sample -> {
+                JsonNode value = sample.path("signedMeterValue");
+                if (!value.isMissingNode() && !value.isNull()) signed.add(value.deepCopy());
+            }));
+        }
+        return signed.isEmpty() ? null : signed;
     }
 
 }

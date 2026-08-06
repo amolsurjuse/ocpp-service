@@ -61,6 +61,11 @@ public class TransactionEventHandler implements OcppMessageHandler {
      */
     @Override
     public JsonNode handle(String chargePointId, JsonNode payload) {
+        return handle(chargePointId, null, payload);
+    }
+
+    @Override
+    public JsonNode handle(String chargePointId, String sourceMessageId, JsonNode payload) {
         try {
             String eventType = payload.path("eventType").asText();
             String timestamp = payload.path("timestamp").asText();
@@ -98,7 +103,8 @@ public class TransactionEventHandler implements OcppMessageHandler {
                                 meterStart,
                                 timestamp,
                                 transactionId,
-                                authorizationGrants.correlationForStart(chargePointId, idTag)
+                                authorizationGrants.correlationForStart(chargePointId, idTag),
+                                sourceMessageId
                         );
                     } else if (!authorizationGrants.consumeForStart(chargePointId, connectorId, idTag, transactionId)) {
                         return invalidStartResponse();
@@ -111,7 +117,8 @@ public class TransactionEventHandler implements OcppMessageHandler {
                                     meterStart,
                                     timestamp,
                                     transactionId,
-                                    authorizationGrants.correlationForStart(chargePointId, idTag)
+                                    authorizationGrants.correlationForStart(chargePointId, idTag),
+                                    sourceMessageId
                             )
                     )) {
                         return invalidStartResponse();
@@ -131,7 +138,8 @@ public class TransactionEventHandler implements OcppMessageHandler {
                                         errorCode,
                                         timestamp,
                                         transactionId,
-                                        endSessionRequested
+                                        endSessionRequested,
+                                        sourceMessageId
                                 )
                         );
                     } else {
@@ -148,7 +156,9 @@ public class TransactionEventHandler implements OcppMessageHandler {
                                             timestamp,
                                             snapshot.energyWh(),
                                             snapshot.powerW(),
-                                            snapshot.stateOfChargePercent()
+                                            snapshot.stateOfChargePercent(),
+                                            sourceMessageId,
+                                            extractSignedMeterValues(payload)
                                     )
                             );
                         }
@@ -170,7 +180,9 @@ public class TransactionEventHandler implements OcppMessageHandler {
                                     connectorId,
                                     meterStop,
                                     timestamp,
-                                    stoppedReason
+                                    stoppedReason,
+                                    sourceMessageId,
+                                    extractSignedMeterValues(payload)
                             )
                     );
                     if (!queued) {
@@ -180,7 +192,9 @@ public class TransactionEventHandler implements OcppMessageHandler {
                                 connectorId,
                                 meterStop,
                                 timestamp,
-                                stoppedReason
+                                stoppedReason,
+                                sourceMessageId,
+                                extractSignedMeterValues(payload)
                         );
                     }
                 }
@@ -250,6 +264,18 @@ public class TransactionEventHandler implements OcppMessageHandler {
             }
         }
         return new MeterSnapshot(energyWh, powerW, stateOfChargePercent);
+    }
+
+    private Object extractSignedMeterValues(JsonNode payload) {
+        var signed = objectMapper.createArrayNode();
+        JsonNode meterValues = payload.path("meterValue");
+        if (meterValues.isArray()) {
+            meterValues.forEach(meterValue -> meterValue.path("sampledValue").forEach(sample -> {
+                JsonNode value = sample.path("signedMeterValue");
+                if (!value.isMissingNode() && !value.isNull()) signed.add(value.deepCopy());
+            }));
+        }
+        return signed.isEmpty() ? null : signed;
     }
 
     private int integerValueOrZero(BigDecimal value) {

@@ -56,7 +56,9 @@ class TransactionEventHandlerTest {
                 1,
                 1201500,
                 "2026-07-07T03:11:23Z",
-                "EVDisconnected"
+                "EVDisconnected",
+                null,
+                null
         );
     }
 
@@ -82,7 +84,9 @@ class TransactionEventHandlerTest {
                 1,
                 0,
                 "2026-07-07T03:11:23Z",
-                "RemoteStop"
+                "RemoteStop",
+                null,
+                null
         );
     }
 
@@ -115,7 +119,8 @@ class TransactionEventHandlerTest {
                 "NoError",
                 "2026-07-13T20:15:25Z",
                 269349,
-                true
+                true,
+                null
         );
     }
 
@@ -147,6 +152,8 @@ class TransactionEventHandlerTest {
                 1,
                 "2026-07-15T21:18:50Z",
                 new java.math.BigDecimal("1200122"),
+                null,
+                null,
                 null,
                 null
         );
@@ -183,6 +190,8 @@ class TransactionEventHandlerTest {
                 "2026-08-03T21:23:21Z",
                 new java.math.BigDecimal("277"),
                 null,
+                null,
+                null,
                 null
         );
     }
@@ -209,7 +218,8 @@ class TransactionEventHandlerTest {
                 "NoError",
                 "2026-08-03T21:23:21Z",
                 null,
-                false
+                false,
+                null
         );
     }
 }

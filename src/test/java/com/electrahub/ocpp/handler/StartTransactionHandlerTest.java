@@ -45,7 +45,7 @@ class StartTransactionHandlerTest {
         assertThat(response.path("transactionId").asInt()).isEqualTo(810001);
         verify(sessionServiceClient).onStartTransaction(
                 "EH-US-CHG-0001", 1, "RFID-APPROVED", null, 1000,
-                "2026-07-25T18:45:00Z", 810001, "4dd9ed1d-3d0c-4470-aa12-a78a9be56339"
+                "2026-07-25T18:45:00Z", 810001, "4dd9ed1d-3d0c-4470-aa12-a78a9be56339", null
         );
     }
 
@@ -83,7 +83,7 @@ class StartTransactionHandlerTest {
 
         assertThat(response.path("idTagInfo").path("status").asText()).isEqualTo("Accepted");
         verify(sessionServiceClient).onStartTransaction(
-                "EH-US-CHG-0001", 1, "CP:payment-token", null, 1000, "", 810003, null
+                "EH-US-CHG-0001", 1, "CP:payment-token", null, 1000, "", 810003, null, null
         );
         verify(authorizationGrants).consumeForStart("EH-US-CHG-0001", 1, "CP:payment-token", 810003);
     }

@@ -19,6 +19,20 @@ import static org.mockito.Mockito.when;
 
 class OcppDeviceEventPublisherTest {
     @Test
+    void derivesTheSameIdentityForAReplayedChargerCall() {
+        @SuppressWarnings("unchecked") ObjectProvider<KafkaTemplate<String, String>> provider = mock(ObjectProvider.class);
+        OcppDeviceEventPublisher publisher = new OcppDeviceEventPublisher(
+                provider, new ObjectMapper(), "events", "tenant-a", Duration.ofSeconds(1));
+
+        assertEquals(
+                publisher.durableEventId("MeterValues", "CP-7", "call-42", Map.of("transactionId", 41)),
+                publisher.durableEventId("MeterValues", "CP-7", "call-42", Map.of("transactionId", 41)));
+        org.junit.jupiter.api.Assertions.assertNotEquals(
+                publisher.durableEventId("MeterValues", "CP-7", "call-42", Map.of("transactionId", 41)),
+                publisher.durableEventId("MeterValues", "CP-7", "call-42", Map.of("transactionId", 42)));
+    }
+
+    @Test
     void publishesVersionedEnvelopeUsingCanonicalConnectorKey() throws Exception {
         @SuppressWarnings("unchecked") KafkaTemplate<String, String> kafka = mock(KafkaTemplate.class);
         @SuppressWarnings("unchecked") ObjectProvider<KafkaTemplate<String, String>> kafkaProvider = mock(ObjectProvider.class);
@@ -27,7 +41,7 @@ class OcppDeviceEventPublisherTest {
         OcppDeviceEventPublisher publisher = new OcppDeviceEventPublisher(
             kafkaProvider, new ObjectMapper().findAndRegisterModules(), "ocpp.device-events.v2", "tenant-a", Duration.ofSeconds(1));
 
-        publisher.publish("MeterValues", "CP-7", 2, Map.of("transactionId", 41));
+        publisher.publish("MeterValues", "CP-7", 2, "call-41", Map.of("transactionId", 41));
 
         ArgumentCaptor<String> key = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
@@ -35,5 +49,6 @@ class OcppDeviceEventPublisherTest {
         assertEquals("tenant-a:CP-7:1:2", key.getValue());
         assertTrue(body.getValue().contains("\"eventVersion\":2"));
         assertTrue(body.getValue().contains("\"transactionId\":41"));
+        assertTrue(body.getValue().contains("\"sourceMessageId\":\"call-41\""));
     }
 }

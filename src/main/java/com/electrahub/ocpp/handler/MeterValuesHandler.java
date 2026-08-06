@@ -56,6 +56,11 @@ public class MeterValuesHandler implements OcppMessageHandler {
      */
     @Override
     public JsonNode handle(String chargePointId, JsonNode payload) {
+        return handle(chargePointId, null, payload);
+    }
+
+    @Override
+    public JsonNode handle(String chargePointId, String sourceMessageId, JsonNode payload) {
         try {
             int connectorId = payload.path("connectorId").asInt();
             int transactionId = payload.path("transactionId").asInt();
@@ -72,7 +77,9 @@ public class MeterValuesHandler implements OcppMessageHandler {
                             timestamp,
                             snapshot.energyWh(),
                             snapshot.powerW(),
-                            snapshot.stateOfChargePercent()
+                            snapshot.stateOfChargePercent(),
+                            sourceMessageId,
+                            extractSignedMeterValues(payload)
                     )
             );
 
@@ -87,6 +94,18 @@ public class MeterValuesHandler implements OcppMessageHandler {
             ObjectNode response = objectMapper.createObjectNode();
             return response;
         }
+    }
+
+    private Object extractSignedMeterValues(JsonNode payload) {
+        var signed = objectMapper.createArrayNode();
+        JsonNode meterValues = payload.path("meterValue");
+        if (meterValues.isArray()) {
+            meterValues.forEach(meterValue -> meterValue.path("sampledValue").forEach(sample -> {
+                JsonNode value = sample.path("signedMeterValue");
+                if (!value.isMissingNode() && !value.isNull()) signed.add(value.deepCopy());
+            }));
+        }
+        return signed.isEmpty() ? null : signed;
     }
 
     private String extractTimestamp(JsonNode payload) {
