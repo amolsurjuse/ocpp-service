@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.SubProtocolCapable;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
@@ -25,9 +26,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @Slf4j
-public class OcppWebSocketHandler extends TextWebSocketHandler {
+public class OcppWebSocketHandler extends TextWebSocketHandler implements SubProtocolCapable {
     private static final Logger LOGGER = LoggerFactory.getLogger(OcppWebSocketHandler.class);
     private static final Duration ACTIVITY_PERSIST_INTERVAL = Duration.ofSeconds(15);
+    private static final java.util.List<String> SUPPORTED_SUBPROTOCOLS = java.util.List.of("ocpp1.6", "ocpp2.0.1");
 
 
     private final ConnectionManager connectionManager;
@@ -68,6 +70,12 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
         log.info("WebSocket connection established for charge point: {}", chargePointId);
 
         connectionManager.registerConnection(chargePointId, session);
+        String acceptedProtocol = session.getAcceptedProtocol();
+        if ("ocpp1.6".equalsIgnoreCase(acceptedProtocol)) {
+            connectionManager.setProtocol(chargePointId, "OCPP16J");
+        } else if ("ocpp2.0.1".equalsIgnoreCase(acceptedProtocol)) {
+            connectionManager.setProtocol(chargePointId, "OCPP201");
+        }
 
         try {
             OcppConnection connection = connectionRepository.findByChargePointId(chargePointId)
@@ -85,6 +93,11 @@ public class OcppWebSocketHandler extends TextWebSocketHandler {
         } catch (DataAccessException ex) {
             log.warn("Unable to persist OCPP connection audit row for {}: {}", chargePointId, ex.getMessage());
         }
+    }
+
+    @Override
+    public java.util.List<String> getSubProtocols() {
+        return SUPPORTED_SUBPROTOCOLS;
     }
 
     /**
