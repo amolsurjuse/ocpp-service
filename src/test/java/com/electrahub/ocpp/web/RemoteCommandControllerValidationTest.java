@@ -61,6 +61,36 @@ class RemoteCommandControllerValidationTest {
                 .andExpect(jsonPath("$.error").value("CHARGE_POINT_NOT_CONNECTED"));
     }
 
+    @Test
+    void getConfigurationUsesTransportNeutralKeysPayload() throws Exception {
+        ConnectionManager connectionManager = mock(ConnectionManager.class);
+        when(connectionManager.connectionOwnership("CP-OFFLINE"))
+                .thenReturn(ConnectionManager.ConnectionOwnership.OFFLINE);
+
+        mockMvc(connectionManager)
+                .perform(post("/api/v1/ocpp/commands/CP-OFFLINE/get-configuration")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"keys\":[\"HeartbeatInterval\"]}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("CHARGE_POINT_NOT_CONNECTED"));
+    }
+
+    @Test
+    void setChargingProfileUsesTransportNeutralProfilePayload() throws Exception {
+        ConnectionManager connectionManager = mock(ConnectionManager.class);
+        when(connectionManager.connectionOwnership("CP-OFFLINE"))
+                .thenReturn(ConnectionManager.ConnectionOwnership.OFFLINE);
+
+        mockMvc(connectionManager)
+                .perform(post("/api/v1/ocpp/commands/CP-OFFLINE/set-charging-profile")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"connectorId":1,"chargingProfile":{"chargingProfileId":10,"stackLevel":0}}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("CHARGE_POINT_NOT_CONNECTED"));
+    }
+
     private MockMvc mockMvc(ConnectionManager connectionManager) {
         RemoteCommandService service = new RemoteCommandService(
                 connectionManager,

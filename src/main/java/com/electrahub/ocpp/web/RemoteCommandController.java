@@ -108,7 +108,11 @@ public class RemoteCommandController {
             @Valid @RequestBody SetChargingProfileRequest request) {
         log.info("Set charging profile command for {}: connectorId={}", chargePointId, request.connectorId());
         return commandResponse(remoteCommandService
-                .setChargingProfile(chargePointId, request.connectorId(), request.chargingProfile()));
+                .setChargingProfile(
+                        chargePointId,
+                        request.connectorId(),
+                        objectMapper.valueToTree(request.chargingProfile())
+                ));
     }
 
     @PostMapping("/{chargePointId}/change-configuration")
@@ -126,7 +130,7 @@ public class RemoteCommandController {
             @Valid @RequestBody GetConfigurationRequest request) {
         log.info("Get configuration command for {}", chargePointId);
         return commandResponse(remoteCommandService
-                .getConfiguration(chargePointId, request.keys()));
+                .getConfiguration(chargePointId, objectMapper.valueToTree(request.keys())));
     }
 
     @PostMapping("/{chargePointId}/trigger-message")

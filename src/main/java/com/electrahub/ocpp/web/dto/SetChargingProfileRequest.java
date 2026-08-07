@@ -1,12 +1,13 @@
 package com.electrahub.ocpp.web.dto;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.NotNull;
+
+import java.util.Map;
 
 public record SetChargingProfileRequest(
         @NotNull(message = "connectorId is required")
         Integer connectorId,
         @NotNull(message = "chargingProfile is required")
-        JsonNode chargingProfile
+        Map<String, Object> chargingProfile
 ) {
 }
