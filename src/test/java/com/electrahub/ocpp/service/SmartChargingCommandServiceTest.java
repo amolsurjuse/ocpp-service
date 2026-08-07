@@ -76,7 +76,7 @@ class SmartChargingCommandServiceTest {
 
     private SmartChargingLimitRequest request() {
         return new SmartChargingLimitRequest(
-                "decision:connector:1", 1, "tx-1", 100, 200, 10,
+                "decision:connector:1", 1, 7, "tx-1", 100, 200, 10,
                 new BigDecimal("42.5"), Instant.parse("2026-08-07T12:00:00Z"),
                 Instant.parse("2026-08-07T12:02:00Z"), SmartChargingLimitRequest.Purpose.SESSION_LIMIT);
     }

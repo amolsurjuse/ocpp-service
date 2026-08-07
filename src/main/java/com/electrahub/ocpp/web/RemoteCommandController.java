@@ -127,8 +127,8 @@ public class RemoteCommandController {
             @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody SmartChargingLimitRequest request
     ) {
-        log.info("Typed smart-charging limit for {}: profileId={} connectorId={}",
-                chargePointId, request.profileId(), request.connectorId());
+        log.info("Typed smart-charging limit for {}: profileId={} connectorId={} evseId={}",
+                chargePointId, request.profileId(), request.connectorId(), request.evseId());
         return smartChargingResponse(smartChargingCommandService.setLimit(chargePointId, request));
     }
 
@@ -137,8 +137,8 @@ public class RemoteCommandController {
             @PathVariable("chargePointId") String chargePointId,
             @Valid @RequestBody SmartChargingClearRequest request
     ) {
-        log.info("Clear typed smart-charging limit for {}: profileId={} connectorId={}",
-                chargePointId, request.profileId(), request.connectorId());
+        log.info("Clear typed smart-charging limit for {}: profileId={} connectorId={} evseId={}",
+                chargePointId, request.profileId(), request.connectorId(), request.evseId());
         return smartChargingResponse(smartChargingCommandService.clearLimit(chargePointId, request));
     }
 

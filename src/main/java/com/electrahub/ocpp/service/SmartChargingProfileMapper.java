@@ -59,7 +59,7 @@ public class SmartChargingProfileMapper {
 
     private ObjectNode setPayload201(SmartChargingLimitRequest request) {
         ObjectNode payload = objectMapper.createObjectNode();
-        payload.put("evseId", request.connectorId());
+        payload.put("evseId", request.evseId() == null ? request.connectorId() : request.evseId());
         ObjectNode profile = payload.putObject("chargingProfile");
         profile.put("id", request.profileId());
         profile.put("stackLevel", request.stackLevel());

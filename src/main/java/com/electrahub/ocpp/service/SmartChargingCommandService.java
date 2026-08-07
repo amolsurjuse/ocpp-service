@@ -84,13 +84,15 @@ public class SmartChargingCommandService {
         String canonical;
         if (request instanceof SmartChargingLimitRequest value) {
             canonical = String.join("|",
-                    value.idempotencyKey(), value.connectorId().toString(), normalized(value.transactionId()),
+                    value.idempotencyKey(), value.connectorId().toString(), normalized(value.evseId()),
+                    normalized(value.transactionId()),
                     value.profileId().toString(), value.scheduleId().toString(), value.stackLevel().toString(),
                     value.limitKw().stripTrailingZeros().toPlainString(), value.validFrom().toString(),
                     value.validTo().toString(), value.purpose().name());
         } else if (request instanceof SmartChargingClearRequest value) {
             canonical = String.join("|",
-                    value.idempotencyKey(), value.connectorId().toString(), value.profileId().toString(),
+                    value.idempotencyKey(), value.connectorId().toString(), normalized(value.evseId()),
+                    value.profileId().toString(),
                     value.stackLevel().toString(), value.purpose().name());
         } else {
             throw new IllegalArgumentException("Unsupported smart-charging request type");
@@ -100,5 +102,9 @@ public class SmartChargingCommandService {
 
     private String normalized(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private String normalized(Integer value) {
+        return value == null ? "" : value.toString();
     }
 }

@@ -17,6 +17,7 @@ import java.time.Instant;
 public record SmartChargingLimitRequest(
         @NotBlank @Pattern(regexp = "[A-Za-z0-9][A-Za-z0-9._:-]{0,199}") String idempotencyKey,
         @NotNull @Min(1) @Max(256) Integer connectorId,
+        @Min(1) @Max(65535) Integer evseId,
         @Size(max = 64) String transactionId,
         @NotNull @Min(0) Integer profileId,
         @NotNull @Min(0) Integer scheduleId,

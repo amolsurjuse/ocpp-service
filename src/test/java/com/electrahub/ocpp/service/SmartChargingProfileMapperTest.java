@@ -42,9 +42,13 @@ class SmartChargingProfileMapperTest {
 
     @Test
     void mapsExactOcpp201Profile() {
-        JsonNode payload = mapper.setPayload("OCPP201", request("uuid-transaction", SmartChargingLimitRequest.Purpose.SESSION_LIMIT));
+        SmartChargingLimitRequest request = new SmartChargingLimitRequest(
+                "decision:connector:1", 1, 42, "uuid-transaction", 120045, 220045, 10,
+                new BigDecimal("42.5"), Instant.parse("2026-08-07T12:00:00Z"),
+                Instant.parse("2026-08-07T12:02:00Z"), SmartChargingLimitRequest.Purpose.SESSION_LIMIT);
+        JsonNode payload = mapper.setPayload("OCPP201", request);
 
-        assertThat(payload.path("evseId").asInt()).isEqualTo(1);
+        assertThat(payload.path("evseId").asInt()).isEqualTo(42);
         JsonNode profile = payload.path("chargingProfile");
         assertThat(profile.path("id").asInt()).isEqualTo(120045);
         assertThat(profile.path("transactionId").asText()).isEqualTo("uuid-transaction");
@@ -59,7 +63,7 @@ class SmartChargingProfileMapperTest {
     @Test
     void clearPayloadIsVersionAware() {
         SmartChargingClearRequest request = new SmartChargingClearRequest(
-                "decision:clear", 1, 120045, 10, SmartChargingLimitRequest.Purpose.SESSION_LIMIT);
+                "decision:clear", 1, 42, 120045, 10, SmartChargingLimitRequest.Purpose.SESSION_LIMIT);
 
         JsonNode v16 = mapper.clearPayload("OCPP16J", request);
         JsonNode v201 = mapper.clearPayload("OCPP201", request);
@@ -71,9 +75,17 @@ class SmartChargingProfileMapperTest {
         assertThat(v201.size()).isEqualTo(1);
     }
 
+    @Test
+    void ocpp201FallsBackToConnectorIdForExistingCallers() {
+        JsonNode payload = mapper.setPayload(
+                "OCPP201", request("uuid-transaction", SmartChargingLimitRequest.Purpose.SESSION_LIMIT));
+
+        assertThat(payload.path("evseId").asInt()).isEqualTo(1);
+    }
+
     private SmartChargingLimitRequest request(String transactionId, SmartChargingLimitRequest.Purpose purpose) {
         return new SmartChargingLimitRequest(
-                "decision:connector:1", 1, transactionId, 120045, 220045, 10,
+                "decision:connector:1", 1, null, transactionId, 120045, 220045, 10,
                 new BigDecimal("42.5"),
                 Instant.parse("2026-08-07T12:00:00Z"),
                 Instant.parse("2026-08-07T12:02:00Z"),
