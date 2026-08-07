@@ -13,6 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -90,8 +91,10 @@ class RemoteStartCommandStoreTest {
     void expiredPendingClaimBecomesUnknownAndCannotLaterBecomeAccepted() {
         RemoteStartCommandStore.Claim claim = store.claim(
                 spec("remote-start:crash-window", UUID.randomUUID().toString()),
-                Duration.ZERO
+                Duration.ofDays(-1)
         );
+
+        assertThat(claim.command().getDeadlineAt()).isBefore(Instant.now());
 
         OcppRemoteStartCommand unknown = store.find("remote-start:crash-window").orElseThrow();
         assertThat(unknown.getState()).isEqualTo(RemoteStartCommandState.UNKNOWN);

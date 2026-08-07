@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import com.electrahub.ocpp.exception.OcppCommandTimeoutException;
 import com.electrahub.ocpp.service.RemoteCommandService;
+import com.electrahub.ocpp.service.SmartChargingCommandService;
 import com.electrahub.ocpp.web.dto.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,6 +27,7 @@ public class RemoteCommandController {
 
     private final RemoteCommandService remoteCommandService;
     private final ObjectMapper objectMapper;
+    private final SmartChargingCommandService smartChargingCommandService;
 
     /**
      * Executes remote command controller for `RemoteCommandController`.
@@ -34,11 +36,16 @@ public class RemoteCommandController {
      * enforces component-specific rules in `com.electrahub.ocpp.web`.
      * @param remoteCommandService input consumed by RemoteCommandController.
      */
-    public RemoteCommandController(RemoteCommandService remoteCommandService, ObjectMapper objectMapper) {
+    public RemoteCommandController(
+            RemoteCommandService remoteCommandService,
+            ObjectMapper objectMapper,
+            SmartChargingCommandService smartChargingCommandService
+    ) {
         LOGGER.info(" Entering RemoteCommandController#RemoteCommandController");
         LOGGER.debug(" Entering RemoteCommandController#RemoteCommandController with debug context");
         this.remoteCommandService = remoteCommandService;
         this.objectMapper = objectMapper;
+        this.smartChargingCommandService = smartChargingCommandService;
     }
 
     @PostMapping("/{chargePointId}/remote-start")
@@ -115,6 +122,26 @@ public class RemoteCommandController {
                 ));
     }
 
+    @PostMapping("/{chargePointId}/smart-charging-limit")
+    public CompletableFuture<ResponseEntity<SmartChargingCommandResponse>> setSmartChargingLimit(
+            @PathVariable("chargePointId") String chargePointId,
+            @Valid @RequestBody SmartChargingLimitRequest request
+    ) {
+        log.info("Typed smart-charging limit for {}: profileId={} connectorId={}",
+                chargePointId, request.profileId(), request.connectorId());
+        return smartChargingResponse(smartChargingCommandService.setLimit(chargePointId, request));
+    }
+
+    @PostMapping("/{chargePointId}/smart-charging-limit/clear")
+    public CompletableFuture<ResponseEntity<SmartChargingCommandResponse>> clearSmartChargingLimit(
+            @PathVariable("chargePointId") String chargePointId,
+            @Valid @RequestBody SmartChargingClearRequest request
+    ) {
+        log.info("Clear typed smart-charging limit for {}: profileId={} connectorId={}",
+                chargePointId, request.profileId(), request.connectorId());
+        return smartChargingResponse(smartChargingCommandService.clearLimit(chargePointId, request));
+    }
+
     @PostMapping("/{chargePointId}/change-configuration")
     public CompletableFuture<ResponseEntity<CommandResponse>> changeConfiguration(
             @PathVariable("chargePointId") String chargePointId,
@@ -148,6 +175,17 @@ public class RemoteCommandController {
                 throw commandFailure(throwable);
             }
             return ResponseEntity.ok(new CommandResponse("success", responsePayload(result)));
+        });
+    }
+
+    private CompletableFuture<ResponseEntity<SmartChargingCommandResponse>> smartChargingResponse(
+            CompletableFuture<SmartChargingCommandResponse> command
+    ) {
+        return command.handle((result, throwable) -> {
+            if (throwable != null) {
+                throw commandFailure(throwable);
+            }
+            return ResponseEntity.ok(result);
         });
     }
 

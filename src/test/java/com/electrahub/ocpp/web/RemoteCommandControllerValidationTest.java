@@ -6,6 +6,7 @@ import com.electrahub.ocpp.service.OcppAuthorizationGrantService;
 import com.electrahub.ocpp.service.OcppClusterCommandRouter;
 import com.electrahub.ocpp.service.RemoteCommandService;
 import com.electrahub.ocpp.service.RemoteStartCommandStore;
+import com.electrahub.ocpp.service.SmartChargingCommandService;
 import com.electrahub.ocpp.websocket.ConnectionManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -91,6 +92,29 @@ class RemoteCommandControllerValidationTest {
                 .andExpect(jsonPath("$.error").value("CHARGE_POINT_NOT_CONNECTED"));
     }
 
+    @Test
+    void typedSmartChargingLimitRejectsInvalidValidityWindow() throws Exception {
+        mockMvc(mock(ConnectionManager.class))
+                .perform(post("/api/v1/ocpp/commands/CP-1/smart-charging-limit")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "idempotencyKey":"decision:connector:1",
+                                  "connectorId":1,
+                                  "transactionId":"tx-1",
+                                  "profileId":100,
+                                  "scheduleId":200,
+                                  "stackLevel":10,
+                                  "limitKw":42.5,
+                                  "validFrom":"2026-08-07T13:00:00Z",
+                                  "validTo":"2026-08-07T12:00:00Z",
+                                  "purpose":"SESSION_LIMIT"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
+    }
+
     private MockMvc mockMvc(ConnectionManager connectionManager) {
         RemoteCommandService service = new RemoteCommandService(
                 connectionManager,
@@ -101,7 +125,8 @@ class RemoteCommandControllerValidationTest {
                 mock(OcppClusterCommandRouter.class),
                 30
         );
-        return standaloneSetup(new RemoteCommandController(service, new ObjectMapper()))
+        return standaloneSetup(new RemoteCommandController(
+                service, new ObjectMapper(), mock(SmartChargingCommandService.class)))
                 .setControllerAdvice(new RestExceptionHandler())
                 .build();
     }

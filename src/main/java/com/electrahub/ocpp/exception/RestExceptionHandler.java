@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.context.request.WebRequest;
 
 import java.util.concurrent.CompletionException;
@@ -17,6 +18,23 @@ import java.util.concurrent.ExecutionException;
 @Slf4j
 public class RestExceptionHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(RestExceptionHandler.class);
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiError> handleValidationFailure(
+            MethodArgumentNotValidException ex,
+            WebRequest request) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .orElse("Request validation failed");
+        ApiError apiError = new ApiError(
+                HttpStatus.BAD_REQUEST.value(),
+                "VALIDATION_ERROR",
+                message,
+                request.getDescription(false).replace("uri=", "")
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(apiError);
+    }
 
 
     @ExceptionHandler(ChargePointNotConnectedException.class)
@@ -86,6 +104,34 @@ public class RestExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(apiError);
     }
 
+    @ExceptionHandler(SmartChargingIdempotencyConflictException.class)
+    public ResponseEntity<ApiError> handleSmartChargingIdempotencyConflict(
+            SmartChargingIdempotencyConflictException ex,
+            WebRequest request) {
+        ApiError apiError = new ApiError(
+                HttpStatus.CONFLICT.value(),
+                "SMART_CHARGING_IDEMPOTENCY_CONFLICT",
+                ex.getMessage(),
+                request.getDescription(false).replace("uri=", "")
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(apiError);
+    }
+
+    @ExceptionHandler(SmartChargingIdempotencyUnavailableException.class)
+    public ResponseEntity<ApiError> handleSmartChargingIdempotencyUnavailable(
+            SmartChargingIdempotencyUnavailableException ex,
+            WebRequest request) {
+        ApiError apiError = new ApiError(
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                "SMART_CHARGING_IDEMPOTENCY_UNAVAILABLE",
+                ex.getMessage(),
+                request.getDescription(false).replace("uri=", "")
+        );
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, "1")
+                .body(apiError);
+    }
+
     @ExceptionHandler({CompletionException.class, ExecutionException.class})
     public ResponseEntity<ApiError> handleAsyncCommandFailure(Exception ex, WebRequest request) {
         Throwable cause = ex;
@@ -104,6 +150,12 @@ public class RestExceptionHandler {
         }
         if (cause instanceof OcppProtocolException protocol) {
             return handleOcppProtocolError(protocol, request);
+        }
+        if (cause instanceof SmartChargingIdempotencyConflictException conflict) {
+            return handleSmartChargingIdempotencyConflict(conflict, request);
+        }
+        if (cause instanceof SmartChargingIdempotencyUnavailableException unavailable) {
+            return handleSmartChargingIdempotencyUnavailable(unavailable, request);
         }
         if (cause instanceof Exception nested) {
             return handleGeneralException(nested, request);
