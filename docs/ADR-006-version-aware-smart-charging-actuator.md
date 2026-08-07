@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed; design checkpoint for load-management gate 7B
+Accepted and deployed; load-management gate 7B completed 2026-08-07
 
 ## Context
 
@@ -12,8 +12,11 @@ transport completion as `status=success` even when the charger payload says
 `Rejected`. OCPP 2.0.1 connections are already supported and stored in the
 distributed connection registry, so callers must not choose the wire version.
 
-The deployed Go simulator currently answers only `BootNotification`; it cannot
-prove the frames emitted by the CSMS for either protocol.
+The Go simulator delegates live charge-point sockets to the
+`web-socket-connector` process. Before this gate that process returned a generic
+accepted result for `SetChargingProfile`, did not support clear, and retained no
+profile state, so it could not prove the frames emitted by the CSMS for either
+protocol.
 
 ## Decision
 
@@ -151,6 +154,31 @@ No existing caller uses the new endpoints. Roll back the services or stop
 calling them; legacy raw commands and existing WebSocket sessions remain
 compatible. Redis idempotency records expire automatically and contain no
 credentials.
+
+## Deployment evidence
+
+- Source commits: OCPP implementation `6746788`; connector conformance
+  `c876ed5`, corrected by authenticated-WebSocket merge `9f8bd69`.
+- CI images: `amolsurjuse/ocpp-service:38` and
+  `amolsurjuse/web-socket-connector:27`.
+- GitOps production revision: `62953dbbc46b7fb9440bf363c6b8b26b94580915`.
+- Development: 160 authenticated sockets reconnected (126 OCPP 1.6J and 34
+  OCPP 2.0.1). Production: 634 reconnected (485 OCPP 1.6J and 149 OCPP 2.0.1).
+- In both environments, an exact Set call for each protocol returned accepted,
+  persisted the expected simulator profile, replayed an identical key without
+  dispatch, returned HTTP 409 for a changed request under the same key, and an
+  exact Clear call removed the profile.
+- Unauthenticated actuator calls returned HTTP 401 and legacy
+  `GetConfiguration` calls continued to return success.
+- Production readiness was UP, both new pods had zero restarts, Argo reported
+  both applications Synced/Healthy, and `smart_charging_command_attempt`
+  remained empty. Gate 7A therefore remains observe-only.
+
+The development gate initially rejected all simulator handshakes because the
+feature branch had been cut from a local branch one commit behind
+`origin/develop`, omitting authenticated WebSocket negotiation. The gate stopped
+promotion, the missing security commit was merged, all tests were rerun, and a
+new connector image was built before production was changed.
 
 ## Rejected alternatives
 
