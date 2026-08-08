@@ -79,7 +79,13 @@ public class TransactionEventHandler implements OcppMessageHandler {
             }
 
             JsonNode transactionInfo = payload.path("transactionInfo");
-            Integer transactionId = resolveTransactionId(transactionInfo.path("transactionId"));
+            JsonNode nativeTransactionIdNode = transactionInfo.path("transactionId");
+            String nativeTransactionId = nativeTransactionIdNode.isMissingNode()
+                    || nativeTransactionIdNode.isNull()
+                    || nativeTransactionIdNode.asText().isBlank()
+                    ? null
+                    : nativeTransactionIdNode.asText();
+            Integer transactionId = resolveTransactionId(nativeTransactionIdNode);
 
             switch (eventType) {
                 case "Started" -> {
@@ -103,6 +109,7 @@ public class TransactionEventHandler implements OcppMessageHandler {
                                 meterStart,
                                 timestamp,
                                 transactionId,
+                                nativeTransactionId,
                                 authorizationGrants.correlationForStart(chargePointId, idTag),
                                 sourceMessageId
                         );
@@ -117,6 +124,7 @@ public class TransactionEventHandler implements OcppMessageHandler {
                                     meterStart,
                                     timestamp,
                                     transactionId,
+                                    nativeTransactionId,
                                     authorizationGrants.correlationForStart(chargePointId, idTag),
                                     sourceMessageId
                             )

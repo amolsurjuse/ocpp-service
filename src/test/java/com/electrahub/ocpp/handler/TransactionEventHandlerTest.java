@@ -22,6 +22,43 @@ class TransactionEventHandlerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
+    void startedEventPreservesNativeOcpp201TransactionId() throws Exception {
+        JsonNode payload = objectMapper.readTree("""
+                {
+                  "eventType": "Started",
+                  "timestamp": "2026-08-07T12:00:00Z",
+                  "triggerReason": "Authorized",
+                  "evse": { "id": 1 },
+                  "idToken": { "idToken": "CP:canary", "type": "Central" },
+                  "transactionInfo": { "transactionId": "tx-ocpp201-native-001" },
+                  "meterValue": [{
+                    "timestamp": "2026-08-07T12:00:00Z",
+                    "sampledValue": [{
+                      "value": 1000,
+                      "measurand": "Energy.Active.Import.Register",
+                      "unitOfMeasure": { "unit": "Wh" }
+                    }]
+                  }]
+                }
+                """);
+
+        handler.handle("SC-CANARY-201-CP1", "message-201-start", payload);
+
+        verify(sessionServiceClient).onStartTransaction(
+                "SC-CANARY-201-CP1",
+                1,
+                "CP:canary",
+                "Central",
+                1000,
+                "2026-08-07T12:00:00Z",
+                518735,
+                "tx-ocpp201-native-001",
+                null,
+                "message-201-start"
+        );
+    }
+
+    @Test
     void endedEventUsesStoppedReasonForSessionStop() throws Exception {
         JsonNode payload = objectMapper.readTree("""
                 {
