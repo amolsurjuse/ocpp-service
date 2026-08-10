@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import com.electrahub.ocpp.domain.enums.OcppMessageType;
 import com.electrahub.ocpp.websocket.OcppJsonRpcMessage;
+import com.electrahub.ocpp.exception.OcppCallErrorException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -86,6 +87,10 @@ public class OcppMessageRouter {
             com.fasterxml.jackson.databind.JsonNode response = handler.handle(
                     chargePointId, message.getMessageId(), message.getPayload());
             return OcppJsonRpcMessage.createCallResult(message.getMessageId(), response);
+        } catch (OcppCallErrorException rejected) {
+            log.warn("Rejected OCPP action {} from {}: code={}", action, chargePointId, rejected.errorCode());
+            return OcppJsonRpcMessage.createCallError(
+                    message.getMessageId(), rejected.errorCode(), rejected.safeDescription(), null);
         } catch (Exception e) {
             log.error("Error handling action {}: {}", action, e.getMessage(), e);
             return OcppJsonRpcMessage.createCallError(

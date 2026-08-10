@@ -38,6 +38,9 @@ spring:
         max.in.flight.requests.per.connection: 5
 
 ocpp:
+  iso15118:
+    certificate-installation-enabled: ${OCPP_ISO15118_CERTIFICATE_INSTALLATION_ENABLED:false}
+    tenant-id: ${OCPP_PNC_TENANT_ID:}
   heartbeat:
     interval-seconds: ${OCPP_HEARTBEAT_INTERVAL_SECONDS:60}
     timeout-seconds: ${OCPP_HEARTBEAT_TIMEOUT_SECONDS:180}
@@ -75,8 +78,13 @@ integration:
     base-url: ${STATION_SERVICE_URL:http://localhost:8081}
   session-service:
     base-url: ${SESSION_SERVICE_URL:http://localhost:8083}
+  pnc:
+    base-url: ${PNC_SERVICE_URL:http://plug-and-charge-platform:8098}
 
 app:
+  pnc:
+    identity-secret: ${APP_INTERNAL_ACCESS_CONTEXT_SECRET:}
+    workload-id: ${OCPP_PNC_WORKLOAD_ID:9e55a5b5-18f8-5adf-a389-e6cba7fa6177}
   security:
     id-tag-fingerprint-key: ${APP_SECURITY_ID_TAG_FINGERPRINT_KEY:}
   ocpp:
