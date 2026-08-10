@@ -46,9 +46,9 @@ class SignedPncCertificateInstallationClientTest {
         server.start();
 
         var client = new SignedPncCertificateInstallationClient(RestClient.builder(), json,
-                "http://127.0.0.1:" + server.getAddress().getPort(), "electrahub", SECRET);
+                "http://127.0.0.1:" + server.getAddress().getPort(), SECRET);
         var response = client.install(new PncCertificateInstallationClient.Request(
-                "CP-201", "ocpp-message-exact", "Install",
+                "electrahub", "CP-201", "ocpp-message-exact", "Install",
                 "urn:iso:15118:2:2013:MsgDef", "dGVzdA=="));
 
         assertEquals("Failed", response.status());

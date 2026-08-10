@@ -1,6 +1,7 @@
 package com.electrahub.ocpp.handler;
 
 import com.electrahub.ocpp.integration.PncCertificateInstallationClient;
+import com.electrahub.ocpp.integration.ChargingStationTenantResolver;
 import com.electrahub.ocpp.websocket.ConnectionManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,14 +20,16 @@ import static org.mockito.Mockito.when;
 
 class Get15118EvCertificateHandlerTest {
     private final PncCertificateInstallationClient pnc = mock(PncCertificateInstallationClient.class);
+    private final ChargingStationTenantResolver tenants = mock(ChargingStationTenantResolver.class);
     private final ConnectionManager connections = mock(ConnectionManager.class);
     private final ObjectMapper json = new ObjectMapper();
     private final Get15118EvCertificateHandler handler =
-            new Get15118EvCertificateHandler(pnc, connections, json);
+            new Get15118EvCertificateHandler(pnc, tenants, connections, json);
 
     @Test
     void mapsAcceptedPncResponseToNativeOcpp201Shape() throws Exception {
         when(connections.getProtocol("CP-201-1")).thenReturn("OCPP201");
+        when(tenants.resolveTenant("CP-201-1")).thenReturn("tenant-a");
         String exiResponse = encoded("signed-response");
         when(pnc.install(any())).thenReturn(new PncCertificateInstallationClient.Response(
                 "Accepted", exiResponse, null, UUID.randomUUID()));
@@ -36,13 +39,14 @@ class Get15118EvCertificateHandlerTest {
         assertEquals("Accepted", response.path("status").asText());
         assertEquals(exiResponse, response.path("exiResponse").asText());
         verify(pnc).install(new PncCertificateInstallationClient.Request(
-                "CP-201-1", "message-1", "Install", Get15118EvCertificateHandler.SCHEMA_15118_2,
+                "tenant-a", "CP-201-1", "message-1", "Install", Get15118EvCertificateHandler.SCHEMA_15118_2,
                 encoded("signed-request")));
     }
 
     @Test
     void providerFailureAndMalformedAcceptedResponseFailClosed() throws Exception {
         when(connections.getProtocol("CP-201-2")).thenReturn("OCPP201");
+        when(tenants.resolveTenant("CP-201-2")).thenReturn("tenant-b");
         when(pnc.install(any()))
                 .thenReturn(new PncCertificateInstallationClient.Response(
                         "Failed", null, "PROVIDER_UNAVAILABLE", UUID.randomUUID()))
@@ -65,6 +69,16 @@ class Get15118EvCertificateHandlerTest {
         JsonNode invalid = request("not-base64%%%");
         assertEquals("Failed", handler.handle("CP-201-3", "message-5", invalid).path("status").asText());
         assertEquals("Failed", handler.handle("CP-201-3", "message-6", request("dGVzdA"))
+                .path("status").asText());
+        verify(pnc, never()).install(any());
+    }
+
+    @Test
+    void ownershipLookupFailureStopsBeforePnc() throws Exception {
+        when(connections.getProtocol("CP-201-4")).thenReturn("OCPP201");
+        when(tenants.resolveTenant("CP-201-4")).thenThrow(new IllegalStateException("not found"));
+
+        assertEquals("Failed", handler.handle("CP-201-4", "message-7", request(encoded("request")))
                 .path("status").asText());
         verify(pnc, never()).install(any());
     }

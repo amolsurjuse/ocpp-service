@@ -22,27 +22,25 @@ public class SignedPncCertificateInstallationClient implements PncCertificateIns
             "ocpp-pnc-protocol-adapter".getBytes(StandardCharsets.UTF_8));
     private final RestClient client;
     private final ObjectMapper json;
-    private final String tenantId;
     private final byte[] identitySecret;
 
     public SignedPncCertificateInstallationClient(
             RestClient.Builder builder,
             ObjectMapper json,
             @Value("${integration.pnc-service.base-url:http://plug-and-charge-platform:8098}") String baseUrl,
-            @Value("${ocpp.iso15118.tenant-id:electrahub}") String tenantId,
             @Value("${ocpp.iso15118.identity-secret:}") String identitySecret) {
         if (identitySecret == null || identitySecret.isBlank() || identitySecret.startsWith("CHANGE_ME")) {
             throw new IllegalStateException("OCPP_ISO15118_IDENTITY_SECRET is required when certificate installation is enabled");
         }
         this.client = builder.baseUrl(baseUrl).build();
         this.json = json;
-        this.tenantId = required(tenantId, "tenant-id");
         this.identitySecret = identitySecret.getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
     public Response install(Request request) {
-        String context = identityContext();
+        String tenantId = required(request.tenantId(), "tenant-id");
+        String context = identityContext(tenantId);
         return client.post()
                 .uri(PATH)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -54,7 +52,7 @@ public class SignedPncCertificateInstallationClient implements PncCertificateIns
                 .body(Response.class);
     }
 
-    private String identityContext() {
+    private String identityContext(String tenantId) {
         try {
             byte[] payload = json.writeValueAsBytes(new IdentityPayload(
                     1, ACTOR_ID.toString(), tenantId, List.of("PNC_PROTOCOL_ADAPTER"),

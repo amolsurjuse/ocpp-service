@@ -1,6 +1,7 @@
 package com.electrahub.ocpp.handler;
 
 import com.electrahub.ocpp.integration.PncCertificateInstallationClient;
+import com.electrahub.ocpp.integration.ChargingStationTenantResolver;
 import com.electrahub.ocpp.service.OcppMessageHandler;
 import com.electrahub.ocpp.websocket.ConnectionManager;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -19,13 +20,16 @@ public class Get15118EvCertificateHandler implements OcppMessageHandler {
     static final String SCHEMA_15118_2 = "urn:iso:15118:2:2013:MsgDef";
     private static final int MAX_EXI_BYTES = 262_144;
     private final PncCertificateInstallationClient pnc;
+    private final ChargingStationTenantResolver tenants;
     private final ConnectionManager connections;
     private final ObjectMapper json;
 
     public Get15118EvCertificateHandler(PncCertificateInstallationClient pnc,
+                                        ChargingStationTenantResolver tenants,
                                         ConnectionManager connections,
                                         ObjectMapper json) {
         this.pnc = pnc;
+        this.tenants = tenants;
         this.connections = connections;
         this.json = json;
     }
@@ -44,9 +48,10 @@ public class Get15118EvCertificateHandler implements OcppMessageHandler {
     public JsonNode handle(String chargePointId, String sourceMessageId, JsonNode payload) {
         try {
             validate(chargePointId, sourceMessageId, payload);
+            String tenantId = tenants.resolveTenant(chargePointId);
             PncCertificateInstallationClient.Response response = pnc.install(
                     new PncCertificateInstallationClient.Request(
-                            chargePointId.trim(), sourceMessageId.trim(), payload.path("action").asText(),
+                            tenantId, chargePointId.trim(), sourceMessageId.trim(), payload.path("action").asText(),
                             payload.path("iso15118SchemaVersion").asText(), payload.path("exiRequest").asText()));
             if (response == null || !"Accepted".equals(response.status()) || !validExi(response.exiResponse())) {
                 return failed();

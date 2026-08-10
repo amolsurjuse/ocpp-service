@@ -61,7 +61,6 @@ ocpp:
     ttl-seconds: ${OCPP_AUTHORIZATION_GRANT_TTL_SECONDS:300}
   iso15118:
     certificate-installation-enabled: ${OCPP_ISO15118_CERTIFICATE_INSTALLATION_ENABLED:false}
-    tenant-id: ${OCPP_ISO15118_TENANT_ID:electrahub}
     identity-secret: ${OCPP_ISO15118_IDENTITY_SECRET:}
   session-callback:
     max-lifecycle-events-per-connector: ${OCPP_SESSION_CALLBACK_MAX_LIFECYCLE_EVENTS_PER_CONNECTOR:32}
