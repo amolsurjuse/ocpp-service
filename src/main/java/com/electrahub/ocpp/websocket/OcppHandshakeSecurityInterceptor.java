@@ -119,12 +119,16 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
                         return false;
                     }
                 }
-                ChargerCredentialVerifier.Decision decision = credentialVerifier.verify(
-                        chargePointId, credential.password(), java.time.Instant.now());
-                if (decision != ChargerCredentialVerifier.Decision.VALID) {
-                    if (mode == SecurityMode.AUDIT && matchesSharedSimulatorPassword(credential.password())) {
-                        record("shared_credential", protocolTag(protocol));
-                    } else if (!violation(response, HttpStatus.UNAUTHORIZED, "invalid_credentials")) {
+                // The transition-only shared fallback must not touch the
+                // credential database. It is accepted only in AUDIT; ENFORCE
+                // always executes charger-scoped verification below.
+                if (mode == SecurityMode.AUDIT && matchesSharedSimulatorPassword(credential.password())) {
+                    record("shared_credential", protocolTag(protocol));
+                } else {
+                    ChargerCredentialVerifier.Decision decision = credentialVerifier.verify(
+                            chargePointId, credential.password(), java.time.Instant.now());
+                    if (decision != ChargerCredentialVerifier.Decision.VALID
+                            && !violation(response, HttpStatus.UNAUTHORIZED, "invalid_credentials")) {
                         return false;
                     }
                 }

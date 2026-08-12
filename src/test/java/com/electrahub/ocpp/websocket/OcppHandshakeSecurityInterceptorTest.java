@@ -3,6 +3,7 @@ package com.electrahub.ocpp.websocket;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
 
@@ -108,9 +109,10 @@ class OcppHandshakeSecurityInterceptorTest {
         HttpHeaders headers = new HttpHeaders();
         headers.add("Sec-WebSocket-Protocol", "ocpp1.6");
         headers.setBasicAuth("EH-TEST-001", "simulator-secret", StandardCharsets.UTF_8);
+        ChargerCredentialVerifier verifier = mock(ChargerCredentialVerifier.class);
         OcppHandshakeSecurityInterceptor interceptor = new OcppHandshakeSecurityInterceptor(
                 "AUDIT", "simulator-secret", "", registry,
-                (id, password, now) -> ChargerCredentialVerifier.Decision.NOT_FOUND,
+                verifier,
                 rateLimiter(OcppHandshakeRateLimiter.Decision.ALLOWED), false);
 
         boolean accepted = interceptor.beforeHandshake(
@@ -119,6 +121,7 @@ class OcppHandshakeSecurityInterceptorTest {
         assertThat(accepted).isTrue();
         assertThat(registry.get("electrahub.ocpp.handshake")
                 .tag("outcome", "shared_credential").counter().count()).isEqualTo(1);
+        verifyNoInteractions(verifier);
     }
 
     @Test
