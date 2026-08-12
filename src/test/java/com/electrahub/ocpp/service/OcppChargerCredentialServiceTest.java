@@ -19,10 +19,18 @@ import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
 class OcppChargerCredentialServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-08-12T12:00:00Z");
+
+    @Test
+    void verificationDoesNotHoldADatabaseTransactionDuringBcrypt() throws Exception {
+        assertThat(OcppChargerCredentialService.class
+                .getMethod("verify", String.class, String.class, Instant.class)
+                .getAnnotation(Transactional.class)).isNull();
+    }
 
     @Test
     void createsOnlyAnAdaptiveHashAndNeverReturnsSecretMaterial() {

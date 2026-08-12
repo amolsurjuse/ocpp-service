@@ -117,7 +117,6 @@ public class OcppChargerCredentialService implements ChargerCredentialVerifier {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public Decision verify(String rawChargePointId, String password, Instant now) {
         if (password == null || now == null) {
             return Decision.INVALID;
@@ -128,6 +127,9 @@ public class OcppChargerCredentialService implements ChargerCredentialVerifier {
         } catch (IllegalArgumentException exception) {
             return Decision.INVALID;
         }
+        // Spring Data completes its short read-only repository transaction
+        // before BCrypt runs. Holding a JDBC connection during an expensive
+        // hash comparison exhausts the pool during fleet reconnect bursts.
         OcppChargerCredential credential = repository.findByChargePointId(chargePointId).orElse(null);
         if (credential == null) {
             return Decision.NOT_FOUND;
