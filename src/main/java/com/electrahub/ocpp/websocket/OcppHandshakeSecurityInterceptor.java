@@ -1,6 +1,8 @@
 package com.electrahub.ocpp.websocket;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import com.electrahub.ocpp.service.ChargerCredentialVerifier;
+import com.electrahub.ocpp.service.OcppHandshakeRateLimiter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -25,20 +27,29 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
     private static final Set<String> SUPPORTED_PROTOCOLS = Set.of("ocpp1.6", "ocpp2.0.1");
 
     private final SecurityMode mode;
-    private final String simulatorPassword;
+    private final String sharedSimulatorPassword;
     private final Set<String> allowedOrigins;
     private final MeterRegistry meterRegistry;
+    private final ChargerCredentialVerifier credentialVerifier;
+    private final OcppHandshakeRateLimiter rateLimiter;
+    private final boolean requireSecureTransport;
 
     public OcppHandshakeSecurityInterceptor(
             @Value("${ocpp.handshake.security-mode:${OCPP_HANDSHAKE_SECURITY_MODE:AUDIT}}") String mode,
             @Value("${ocpp.handshake.simulator-password:${OCPP_HANDSHAKE_SIMULATOR_PASSWORD:}}") String simulatorPassword,
             @Value("${ocpp.handshake.allowed-origins:${OCPP_HANDSHAKE_ALLOWED_ORIGINS:}}") String allowedOrigins,
-            MeterRegistry meterRegistry
+            MeterRegistry meterRegistry,
+            ChargerCredentialVerifier credentialVerifier,
+            OcppHandshakeRateLimiter rateLimiter,
+            @Value("${ocpp.handshake.require-secure-transport:false}") boolean requireSecureTransport
     ) {
         this.mode = SecurityMode.from(mode);
-        this.simulatorPassword = simulatorPassword == null ? "" : simulatorPassword;
+        this.sharedSimulatorPassword = simulatorPassword == null ? "" : simulatorPassword;
         this.allowedOrigins = parseCsv(allowedOrigins);
         this.meterRegistry = meterRegistry;
+        this.credentialVerifier = credentialVerifier;
+        this.rateLimiter = rateLimiter;
+        this.requireSecureTransport = requireSecureTransport;
     }
 
     @Override
@@ -68,11 +79,16 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
         }
 
         if (!isSecure(request)) {
-            record("insecure_transport", protocolTag(protocol));
+            if (!violation(
+                    response, HttpStatus.UPGRADE_REQUIRED, "insecure_transport", protocolTag(protocol))) {
+                return false;
+            }
         }
 
         String origin = request.getHeaders().getOrigin();
-        if (origin != null && !origin.isBlank() && !allowedOrigins.isEmpty() && !allowedOrigins.contains(origin)) {
+        if (origin != null && !origin.isBlank()
+                && ((mode == SecurityMode.ENFORCE && !allowedOrigins.contains(origin))
+                || (!allowedOrigins.isEmpty() && !allowedOrigins.contains(origin)))) {
             if (!violation(response, HttpStatus.FORBIDDEN, "origin_rejected")) {
                 return false;
             }
@@ -91,11 +107,26 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
                 if (!violation(response, HttpStatus.UNAUTHORIZED, "identity_mismatch")) {
                     return false;
                 }
-            } else if (simulatorPassword.isBlank() || !MessageDigest.isEqual(
-                    simulatorPassword.getBytes(StandardCharsets.UTF_8),
-                    credential.password().getBytes(StandardCharsets.UTF_8))) {
-                if (!violation(response, HttpStatus.UNAUTHORIZED, "invalid_credentials")) {
-                    return false;
+            } else {
+                OcppHandshakeRateLimiter.Decision limitDecision = rateLimiter.allow(
+                        chargePointId, request.getRemoteAddress());
+                if (limitDecision == OcppHandshakeRateLimiter.Decision.LIMITED) {
+                    if (!violation(response, HttpStatus.TOO_MANY_REQUESTS, "rate_limited")) {
+                        return false;
+                    }
+                } else if (limitDecision == OcppHandshakeRateLimiter.Decision.UNAVAILABLE) {
+                    if (!violation(response, HttpStatus.SERVICE_UNAVAILABLE, "rate_limiter_unavailable")) {
+                        return false;
+                    }
+                }
+                ChargerCredentialVerifier.Decision decision = credentialVerifier.verify(
+                        chargePointId, credential.password(), java.time.Instant.now());
+                if (decision != ChargerCredentialVerifier.Decision.VALID) {
+                    if (mode == SecurityMode.AUDIT && matchesSharedSimulatorPassword(credential.password())) {
+                        record("shared_credential", protocolTag(protocol));
+                    } else if (!violation(response, HttpStatus.UNAUTHORIZED, "invalid_credentials")) {
+                        return false;
+                    }
                 }
             }
         }
@@ -115,8 +146,13 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
     }
 
     private boolean violation(ServerHttpResponse response, HttpStatus status, String outcome) {
-        record(outcome, "none");
-        if (mode != SecurityMode.ENFORCE) {
+        return violation(response, status, outcome, "none");
+    }
+
+    private boolean violation(ServerHttpResponse response, HttpStatus status, String outcome, String protocol) {
+        record(outcome, protocol);
+        if (mode != SecurityMode.ENFORCE
+                || ("insecure_transport".equals(outcome) && !requireSecureTransport)) {
             return true;
         }
         response.setStatusCode(status);
@@ -125,6 +161,14 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
 
     private void record(String outcome, String protocol) {
         meterRegistry.counter("electrahub.ocpp.handshake", "outcome", outcome, "protocol", protocol).increment();
+    }
+
+    private boolean matchesSharedSimulatorPassword(String suppliedPassword) {
+        return !sharedSimulatorPassword.isBlank()
+                && suppliedPassword != null
+                && MessageDigest.isEqual(
+                        sharedSimulatorPassword.getBytes(StandardCharsets.UTF_8),
+                        suppliedPassword.getBytes(StandardCharsets.UTF_8));
     }
 
     private static String requestedProtocol(HttpHeaders headers) {

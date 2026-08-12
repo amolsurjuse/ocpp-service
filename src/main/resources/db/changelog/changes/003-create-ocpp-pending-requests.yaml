@@ -2,6 +2,11 @@ databaseChangeLog:
   - changeSet:
       id: create-ocpp-pending-requests-table
       author: electrahub
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: ocpp_pending_requests
       changes:
         - createTable:
             tableName: ocpp_pending_requests

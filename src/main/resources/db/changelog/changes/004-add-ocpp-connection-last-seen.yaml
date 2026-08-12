@@ -2,6 +2,12 @@ databaseChangeLog:
   - changeSet:
       id: add-ocpp-connection-last-seen
       author: codex
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: ocpp_connections
+                columnName: last_seen_at
       changes:
         - addColumn:
             tableName: ocpp_connections

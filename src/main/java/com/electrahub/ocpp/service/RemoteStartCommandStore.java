@@ -37,6 +37,7 @@ public class RemoteStartCommandStore {
 
     public Claim claim(CommandSpec spec, Duration responseTimeout) {
         Instant now = clock.instant();
+        Duration effectiveTimeout = responseTimeout == null ? Duration.ZERO : responseTimeout;
         Integer remoteStartId = spec.remoteStartId();
 
         for (int attempt = 0; attempt < MAX_REMOTE_START_ID_ALLOCATION_ATTEMPTS; attempt++) {
@@ -44,11 +45,15 @@ public class RemoteStartCommandStore {
                     spec,
                     remoteStartId,
                     now,
-                    now.plus(responseTimeout)
+                    now.plus(effectiveTimeout)
             );
 
             try {
-                return new Claim(true, repository.saveAndFlush(requested));
+                OcppRemoteStartCommand saved = repository.saveAndFlush(requested);
+                if (effectiveTimeout.isZero() || effectiveTimeout.isNegative()) {
+                    return new Claim(true, expire(saved, now));
+                }
+                return new Claim(true, saved);
             } catch (DataIntegrityViolationException duplicate) {
                 Optional<OcppRemoteStartCommand> existing = repository.findByCommandKey(spec.commandKey());
                 if (existing.isPresent()) {
@@ -103,6 +108,10 @@ public class RemoteStartCommandStore {
             return command;
         }
 
+        return expire(command, now);
+    }
+
+    private OcppRemoteStartCommand expire(OcppRemoteStartCommand command, Instant now) {
         repository.transitionPending(
                 command.getId(),
                 RemoteStartCommandState.PENDING,

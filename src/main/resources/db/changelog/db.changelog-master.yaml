@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/changes/004-add-ocpp-connection-last-seen.yaml
   - include:
       file: db/changelog/changes/005-create-ocpp-remote-start-commands.yaml
+  - include:
+      file: db/changelog/changes/006-create-ocpp-charger-credentials.yaml
