@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OcppChargerCredentialRepository extends JpaRepository<OcppChargerCredential, UUID> {
     Optional<OcppChargerCredential> findByChargePointId(String chargePointId);
+    long countByStatus(OcppChargerCredential.Status status);
 }

@@ -3,9 +3,10 @@ package com.electrahub.ocpp.service;
 import com.electrahub.ocpp.domain.OcppChargerCertificate;
 import com.electrahub.ocpp.domain.OcppChargerCertificate.Status;
 import com.electrahub.ocpp.domain.OcppChargerCertificateAudit;
+import com.electrahub.ocpp.domain.OcppChargerCredential;
 import com.electrahub.ocpp.repository.OcppChargerCertificateAuditRepository;
 import com.electrahub.ocpp.repository.OcppChargerCertificateRepository;
-import com.electrahub.ocpp.repository.OcppConnectionRepository;
+import com.electrahub.ocpp.repository.OcppChargerCredentialRepository;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.AlgorithmParameters;
@@ -40,24 +41,24 @@ public class OcppChargerCertificateService implements ChargerCertificateVerifier
     private final OcppChargerCertificateAuditRepository auditRepository;
     private final Clock clock;
     private final Duration maximumOverlap;
-    private final OcppConnectionRepository connectionRepository;
+    private final OcppChargerCredentialRepository credentialRepository;
 
     @Autowired
     public OcppChargerCertificateService(
             OcppChargerCertificateRepository repository,
             OcppChargerCertificateAuditRepository auditRepository,
-            OcppConnectionRepository connectionRepository,
+            OcppChargerCredentialRepository credentialRepository,
             @Value("${ocpp.mtls.certificate-max-overlap-seconds:${OCPP_MTLS_CERTIFICATE_MAX_OVERLAP_SECONDS:86400}}")
             long maximumOverlapSeconds
     ) {
-        this(repository, auditRepository, connectionRepository, Clock.systemUTC(),
+        this(repository, auditRepository, credentialRepository, Clock.systemUTC(),
                 Duration.ofSeconds(Math.max(0, maximumOverlapSeconds)));
     }
 
     OcppChargerCertificateService(
             OcppChargerCertificateRepository repository,
             OcppChargerCertificateAuditRepository auditRepository,
-            OcppConnectionRepository connectionRepository,
+            OcppChargerCredentialRepository credentialRepository,
             Clock clock,
             Duration maximumOverlap
     ) {
@@ -65,7 +66,7 @@ public class OcppChargerCertificateService implements ChargerCertificateVerifier
         this.auditRepository = auditRepository;
         this.clock = clock;
         this.maximumOverlap = maximumOverlap;
-        this.connectionRepository = connectionRepository;
+        this.credentialRepository = credentialRepository;
     }
 
     @Transactional
@@ -146,7 +147,7 @@ public class OcppChargerCertificateService implements ChargerCertificateVerifier
         Instant now = clock.instant();
         Duration warning = expiryWarning == null || expiryWarning.isNegative()
                 ? Duration.ofDays(30) : expiryWarning;
-        long knownFleet = connectionRepository.count();
+        long knownFleet = credentialRepository.countByStatus(OcppChargerCredential.Status.ACTIVE);
         long enrolled = repository.countDistinctChargePointIdsByStatusIn(ADMISSIBLE);
         long active = repository.countByStatus(Status.ACTIVE);
         long retiring = repository.countByStatus(Status.RETIRING);

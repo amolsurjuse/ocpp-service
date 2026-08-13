@@ -8,9 +8,10 @@ import static org.mockito.Mockito.when;
 
 import com.electrahub.ocpp.domain.OcppChargerCertificate;
 import com.electrahub.ocpp.domain.OcppChargerCertificate.Status;
+import com.electrahub.ocpp.domain.OcppChargerCredential;
 import com.electrahub.ocpp.repository.OcppChargerCertificateAuditRepository;
 import com.electrahub.ocpp.repository.OcppChargerCertificateRepository;
-import com.electrahub.ocpp.repository.OcppConnectionRepository;
+import com.electrahub.ocpp.repository.OcppChargerCredentialRepository;
 import java.math.BigInteger;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
@@ -93,15 +94,15 @@ class OcppChargerCertificateServiceTest {
     void fleetReadinessFailsClosedWhenAnyKnownChargerIsMissingACertificate() {
         OcppChargerCertificateRepository repository = mock(OcppChargerCertificateRepository.class);
         OcppChargerCertificateAuditRepository audits = mock(OcppChargerCertificateAuditRepository.class);
-        OcppConnectionRepository connections = mock(OcppConnectionRepository.class);
-        when(connections.count()).thenReturn(100L);
+        OcppChargerCredentialRepository credentials = mock(OcppChargerCredentialRepository.class);
+        when(credentials.countByStatus(OcppChargerCredential.Status.ACTIVE)).thenReturn(100L);
         when(repository.countDistinctChargePointIdsByStatusIn(any())).thenReturn(99L);
         when(repository.countByStatus(Status.ACTIVE)).thenReturn(99L);
         when(repository.countByStatus(Status.RETIRING)).thenReturn(0L);
         when(repository.countByStatus(Status.REVOKED)).thenReturn(1L);
         when(repository.countByStatusInAndValidUntilBefore(any(), any())).thenReturn(0L);
 
-        var result = service(repository, audits, connections).fleetReadiness(Duration.ofDays(30));
+        var result = service(repository, audits, credentials).fleetReadiness(Duration.ofDays(30));
 
         assertThat(result.missingCertificates()).isEqualTo(1);
         assertThat(result.enforcementReady()).isFalse();
@@ -111,15 +112,15 @@ class OcppChargerCertificateServiceTest {
             OcppChargerCertificateRepository repository,
             OcppChargerCertificateAuditRepository audits
     ) {
-        return service(repository, audits, mock(OcppConnectionRepository.class));
+        return service(repository, audits, mock(OcppChargerCredentialRepository.class));
     }
 
     private OcppChargerCertificateService service(
             OcppChargerCertificateRepository repository,
             OcppChargerCertificateAuditRepository audits,
-            OcppConnectionRepository connections
+            OcppChargerCredentialRepository credentials
     ) {
-        return new OcppChargerCertificateService(repository, audits, connections,
+        return new OcppChargerCertificateService(repository, audits, credentials,
                 Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofHours(24));
     }
 
