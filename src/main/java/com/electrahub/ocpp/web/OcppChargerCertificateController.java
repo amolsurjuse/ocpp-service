@@ -61,6 +61,11 @@ public class OcppChargerCertificateController {
         return service.metadata(chargePointId);
     }
 
+    @GetMapping("/fleet/readiness")
+    public OcppChargerCertificateService.FleetReadiness fleetReadiness() {
+        return service.fleetReadiness(Duration.ofDays(30));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> invalid(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(

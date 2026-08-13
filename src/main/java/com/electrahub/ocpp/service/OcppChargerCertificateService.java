@@ -5,6 +5,7 @@ import com.electrahub.ocpp.domain.OcppChargerCertificate.Status;
 import com.electrahub.ocpp.domain.OcppChargerCertificateAudit;
 import com.electrahub.ocpp.repository.OcppChargerCertificateAuditRepository;
 import com.electrahub.ocpp.repository.OcppChargerCertificateRepository;
+import com.electrahub.ocpp.repository.OcppConnectionRepository;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.AlgorithmParameters;
@@ -39,21 +40,24 @@ public class OcppChargerCertificateService implements ChargerCertificateVerifier
     private final OcppChargerCertificateAuditRepository auditRepository;
     private final Clock clock;
     private final Duration maximumOverlap;
+    private final OcppConnectionRepository connectionRepository;
 
     @Autowired
     public OcppChargerCertificateService(
             OcppChargerCertificateRepository repository,
             OcppChargerCertificateAuditRepository auditRepository,
+            OcppConnectionRepository connectionRepository,
             @Value("${ocpp.mtls.certificate-max-overlap-seconds:${OCPP_MTLS_CERTIFICATE_MAX_OVERLAP_SECONDS:86400}}")
             long maximumOverlapSeconds
     ) {
-        this(repository, auditRepository, Clock.systemUTC(),
+        this(repository, auditRepository, connectionRepository, Clock.systemUTC(),
                 Duration.ofSeconds(Math.max(0, maximumOverlapSeconds)));
     }
 
     OcppChargerCertificateService(
             OcppChargerCertificateRepository repository,
             OcppChargerCertificateAuditRepository auditRepository,
+            OcppConnectionRepository connectionRepository,
             Clock clock,
             Duration maximumOverlap
     ) {
@@ -61,6 +65,7 @@ public class OcppChargerCertificateService implements ChargerCertificateVerifier
         this.auditRepository = auditRepository;
         this.clock = clock;
         this.maximumOverlap = maximumOverlap;
+        this.connectionRepository = connectionRepository;
     }
 
     @Transactional
@@ -134,6 +139,23 @@ public class OcppChargerCertificateService implements ChargerCertificateVerifier
     public List<CertificateMetadata> metadata(String rawChargePointId) {
         return repository.findAllByChargePointIdOrderByCreatedAtDesc(normalizeChargePointId(rawChargePointId))
                 .stream().map(this::metadata).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public FleetReadiness fleetReadiness(Duration expiryWarning) {
+        Instant now = clock.instant();
+        Duration warning = expiryWarning == null || expiryWarning.isNegative()
+                ? Duration.ofDays(30) : expiryWarning;
+        long knownFleet = connectionRepository.count();
+        long enrolled = repository.countDistinctChargePointIdsByStatusIn(ADMISSIBLE);
+        long active = repository.countByStatus(Status.ACTIVE);
+        long retiring = repository.countByStatus(Status.RETIRING);
+        long revoked = repository.countByStatus(Status.REVOKED);
+        long expiring = repository.countByStatusInAndValidUntilBefore(ADMISSIBLE, now.plus(warning));
+        long missing = Math.max(0, knownFleet - enrolled);
+        boolean ready = knownFleet > 0 && missing == 0 && expiring == 0;
+        return new FleetReadiness(now, knownFleet, enrolled, missing, active, retiring,
+                revoked, expiring, ready);
     }
 
     @Override
@@ -331,4 +353,16 @@ public class OcppChargerCertificateService implements ChargerCertificateVerifier
             Instant updatedAt
     ) {
     }
+
+    public record FleetReadiness(
+            Instant evaluatedAt,
+            long knownFleet,
+            long enrolledChargePoints,
+            long missingCertificates,
+            long activeCertificates,
+            long retiringCertificates,
+            long revokedCertificates,
+            long certificatesExpiringWithinWarningWindow,
+            boolean enforcementReady
+    ) {}
 }
