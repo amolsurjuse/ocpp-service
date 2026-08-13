@@ -60,7 +60,7 @@ public class BootNotificationHandler implements OcppMessageHandler {
     @Override
     public JsonNode handle(String chargePointId, JsonNode payload) {
         try {
-            log.info("Processing BootNotification for charge point: {}", chargePointId);
+            log.debug("Processing BootNotification for charge point: {}", chargePointId);
 
             String chargePointVendor = payload.path("chargePointVendor").asText("Unknown");
             String chargePointModel = payload.path("chargePointModel").asText("Unknown");

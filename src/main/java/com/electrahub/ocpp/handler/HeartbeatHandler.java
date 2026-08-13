@@ -14,6 +14,8 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 @Slf4j
@@ -24,6 +26,8 @@ public class HeartbeatHandler implements OcppMessageHandler {
     private final ConnectionManager connectionManager;
     private final OcppConnectionRepository connectionRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ConcurrentHashMap<String, Instant> lastPersistedAt = new ConcurrentHashMap<>();
+    private static final Duration PERSIST_INTERVAL = Duration.ofSeconds(60);
 
     public HeartbeatHandler(
             ConnectionManager connectionManager,
@@ -60,7 +64,7 @@ public class HeartbeatHandler implements OcppMessageHandler {
         try {
             Instant now = Instant.now();
 
-            try {
+            if (shouldPersist(chargePointId, now)) try {
                 OcppConnection connection = connectionRepository.findByChargePointId(chargePointId)
                         .orElseGet(() -> OcppConnection.builder()
                                 .chargePointId(chargePointId)
@@ -73,6 +77,7 @@ public class HeartbeatHandler implements OcppMessageHandler {
                 connection.setDisconnectedAt(null);
                 connection.setActive(true);
                 connectionRepository.save(connection);
+                lastPersistedAt.put(chargePointId, now);
                 log.debug("Updated heartbeat for charge point: {}", chargePointId);
             } catch (DataAccessException ex) {
                 log.warn("Unable to persist heartbeat for charge point {}: {}", chargePointId, ex.getMessage());
@@ -89,6 +94,11 @@ public class HeartbeatHandler implements OcppMessageHandler {
             response.put("currentTime", Instant.now().toString());
             return response;
         }
+    }
+
+    private boolean shouldPersist(String chargePointId, Instant now) {
+        Instant previous = lastPersistedAt.get(chargePointId);
+        return previous == null || previous.plus(PERSIST_INTERVAL).isBefore(now);
     }
 
 }

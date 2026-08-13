@@ -86,7 +86,7 @@ public class ConnectionManager {
         } catch (DataAccessException ex) {
             log.warn("Unable to store Redis connection marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
         }
-        log.info("Registered connection for charge point: {} on node: {}", normalizedChargePointId, nodeId);
+        log.debug("Registered connection for charge point: {} on node: {}", normalizedChargePointId, nodeId);
     }
 
     /**
@@ -105,7 +105,7 @@ public class ConnectionManager {
         } catch (DataAccessException ex) {
             log.warn("Unable to remove Redis connection marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
         }
-        log.info("Removed connection for charge point: {}", normalizedChargePointId);
+        log.debug("Removed connection for charge point: {}", normalizedChargePointId);
     }
 
     public boolean removeConnection(String chargePointId, WebSocketSession session) {
@@ -121,7 +121,7 @@ public class ConnectionManager {
         } catch (DataAccessException ex) {
             log.warn("Unable to remove Redis connection marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
         }
-        log.info("Removed current connection for charge point: {}", normalizedChargePointId);
+        log.debug("Removed current connection for charge point: {}", normalizedChargePointId);
         return true;
     }
 

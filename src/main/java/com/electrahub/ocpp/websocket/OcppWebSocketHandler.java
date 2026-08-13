@@ -64,10 +64,9 @@ public class OcppWebSocketHandler extends TextWebSocketHandler implements SubPro
      */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        LOGGER.info(" Entering OcppWebSocketHandler#afterConnectionEstablished");
         LOGGER.debug(" Entering OcppWebSocketHandler#afterConnectionEstablished with debug context");
         String chargePointId = extractChargePointId(session);
-        log.info("WebSocket connection established for charge point: {}", chargePointId);
+        log.debug("WebSocket connection established for charge point: {}", chargePointId);
 
         connectionManager.registerConnection(chargePointId, session);
         String acceptedProtocol = session.getAcceptedProtocol();
@@ -151,7 +150,12 @@ public class OcppWebSocketHandler extends TextWebSocketHandler implements SubPro
             OcppJsonRpcMessage ocppMessage
     ) {
         try {
-            touchConnectionActivity(chargePointId, session);
+            // HeartbeatHandler owns the bounded durable liveness write. Running
+            // the generic activity write as well doubled database traffic for
+            // the highest-volume OCPP message.
+            if (!"Heartbeat".equals(ocppMessage.getAction())) {
+                touchConnectionActivity(chargePointId, session);
+            }
             updateProtocolFromMessage(chargePointId, ocppMessage);
             OcppJsonRpcMessage response = messageRouter.routeMessage(chargePointId, ocppMessage);
             if (response != null) {
@@ -200,7 +204,7 @@ public class OcppWebSocketHandler extends TextWebSocketHandler implements SubPro
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         String chargePointId = extractChargePointId(session);
-        log.info("WebSocket connection closed for charge point: {} with status: {}", chargePointId, status);
+        log.debug("WebSocket connection closed for charge point: {} with status: {}", chargePointId, status);
 
         if (connectionManager.removeConnection(chargePointId, session)) {
             availabilityService.markOffline(chargePointId, "OCPP_WEBSOCKET_DISCONNECTED", false);
