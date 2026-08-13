@@ -11,3 +11,5 @@ databaseChangeLog:
       file: db/changelog/changes/005-create-ocpp-remote-start-commands.yaml
   - include:
       file: db/changelog/changes/006-create-ocpp-charger-credentials.yaml
+  - include:
+      file: db/changelog/changes/007-create-ocpp-charger-certificates.yaml

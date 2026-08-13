@@ -9,11 +9,14 @@ import static org.mockito.ArgumentMatchers.any;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.electrahub.ocpp.service.ChargerCredentialVerifier;
+import com.electrahub.ocpp.service.ChargerCertificateVerifier;
+import com.electrahub.ocpp.service.ForwardedClientCertificateParser;
 import com.electrahub.ocpp.service.OcppHandshakeRateLimiter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashMap;
+import java.security.cert.X509Certificate;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -158,6 +161,49 @@ class OcppHandshakeSecurityInterceptorTest {
 
         assertThat(accepted).isFalse();
         verify(response).setStatusCode(HttpStatus.UPGRADE_REQUIRED);
+    }
+
+    @Test
+    void profileThreeEnforcementAcceptsBoundCertificateWithoutBasicAuthentication() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Sec-WebSocket-Protocol", "ocpp2.0.1");
+        headers.add("Client-Cert", ":AQ==:");
+        HashMap<String, Object> attributes = new HashMap<>();
+        ForwardedClientCertificateParser parser = mock(ForwardedClientCertificateParser.class);
+        X509Certificate certificate = mock(X509Certificate.class);
+        when(parser.parse(":AQ==:")).thenReturn(certificate);
+        OcppHandshakeSecurityInterceptor interceptor = new OcppHandshakeSecurityInterceptor(
+                "ENFORCE", "", "", registry,
+                (id, password, now) -> ChargerCredentialVerifier.Decision.NOT_FOUND,
+                rateLimiter(OcppHandshakeRateLimiter.Decision.ALLOWED), false,
+                "ENFORCE", parser,
+                (id, supplied, now) -> ChargerCertificateVerifier.Decision.VALID);
+
+        boolean accepted = interceptor.beforeHandshake(
+                request(headers), mock(ServerHttpResponse.class), mock(WebSocketHandler.class), attributes);
+
+        assertThat(accepted).isTrue();
+        assertThat(attributes).containsEntry(OcppHandshakeSecurityInterceptor.AUTHENTICATION_ATTRIBUTE, "mtls");
+        assertThat(registry.get("electrahub.ocpp.mtls.handshake")
+                .tag("outcome", "accepted").counter().count()).isEqualTo(1);
+    }
+
+    @Test
+    void profileThreeEnforcementRejectsMissingCertificateBeforeBasicFallback() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Sec-WebSocket-Protocol", "ocpp2.0.1");
+        ServerHttpResponse response = mock(ServerHttpResponse.class);
+        OcppHandshakeSecurityInterceptor interceptor = new OcppHandshakeSecurityInterceptor(
+                "ENFORCE", "", "", new SimpleMeterRegistry(),
+                (id, password, now) -> ChargerCredentialVerifier.Decision.VALID,
+                rateLimiter(OcppHandshakeRateLimiter.Decision.ALLOWED), false,
+                "ENFORCE", new ForwardedClientCertificateParser(),
+                (id, supplied, now) -> ChargerCertificateVerifier.Decision.VALID);
+
+        assertThat(interceptor.beforeHandshake(
+                request(headers), response, mock(WebSocketHandler.class), new HashMap<>())).isFalse();
+        verify(response).setStatusCode(HttpStatus.UNAUTHORIZED);
     }
 
     private OcppHandshakeSecurityInterceptor interceptor(String mode, SimpleMeterRegistry registry) {

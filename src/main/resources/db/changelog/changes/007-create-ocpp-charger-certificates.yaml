@@ -1,0 +1,56 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-create-ocpp-charger-certificates
+      author: electrahub
+      changes:
+        - createTable:
+            tableName: ocpp_charger_certificates
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints: { primaryKey: true, nullable: false }
+              - column:
+                  name: charge_point_id
+                  type: varchar(255)
+                  constraints: { nullable: false }
+              - column:
+                  name: fingerprint_sha256
+                  type: varchar(64)
+                  constraints: { nullable: false, unique: true, uniqueConstraintName: uk_ocpp_charger_certificate_fingerprint }
+              - column: { name: serial_number, type: varchar(128), constraints: { nullable: false } }
+              - column: { name: subject_dn, type: varchar(1000), constraints: { nullable: false } }
+              - column: { name: issuer_dn, type: varchar(1000), constraints: { nullable: false } }
+              - column: { name: public_key_algorithm, type: varchar(32), constraints: { nullable: false } }
+              - column: { name: valid_from, type: timestamp with time zone, constraints: { nullable: false } }
+              - column: { name: valid_until, type: timestamp with time zone, constraints: { nullable: false } }
+              - column: { name: status, type: varchar(16), constraints: { nullable: false } }
+              - column: { name: retire_at, type: timestamp with time zone }
+              - column: { name: created_at, type: timestamp with time zone, constraints: { nullable: false } }
+              - column: { name: updated_at, type: timestamp with time zone, constraints: { nullable: false } }
+              - column: { name: certificate_version, type: bigint, defaultValueNumeric: 0, constraints: { nullable: false } }
+        - createIndex:
+            tableName: ocpp_charger_certificates
+            indexName: idx_ocpp_charger_certificate_charge_point_status
+            columns:
+              - column: { name: charge_point_id }
+              - column: { name: status }
+        - createTable:
+            tableName: ocpp_charger_certificate_audit
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints: { primaryKey: true, nullable: false }
+              - column: { name: charge_point_id, type: varchar(255), constraints: { nullable: false } }
+              - column: { name: fingerprint_sha256, type: varchar(64), constraints: { nullable: false } }
+              - column: { name: action, type: varchar(24), constraints: { nullable: false } }
+              - column: { name: actor, type: varchar(120), constraints: { nullable: false } }
+              - column: { name: certificate_version, type: bigint, constraints: { nullable: false } }
+              - column: { name: created_at, type: timestamp with time zone, constraints: { nullable: false } }
+        - createIndex:
+            tableName: ocpp_charger_certificate_audit
+            indexName: idx_ocpp_charger_certificate_audit_created
+            columns:
+              - column: { name: charge_point_id }
+              - column: { name: created_at }

@@ -1,11 +1,15 @@
 package com.electrahub.ocpp.websocket;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import com.electrahub.ocpp.service.ChargerCertificateVerifier;
 import com.electrahub.ocpp.service.ChargerCredentialVerifier;
+import com.electrahub.ocpp.service.ForwardedClientCertificateParser;
 import com.electrahub.ocpp.service.OcppHandshakeRateLimiter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.cert.X509Certificate;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.Locale;
@@ -24,6 +28,7 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
 
     static final String PROTOCOL_ATTRIBUTE = "ocpp.negotiatedProtocol";
+    static final String AUTHENTICATION_ATTRIBUTE = "ocpp.authenticationMethod";
     private static final Set<String> SUPPORTED_PROTOCOLS = Set.of("ocpp1.6", "ocpp2.0.1");
 
     private final SecurityMode mode;
@@ -33,7 +38,11 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
     private final ChargerCredentialVerifier credentialVerifier;
     private final OcppHandshakeRateLimiter rateLimiter;
     private final boolean requireSecureTransport;
+    private final MtlsMode mtlsMode;
+    private final ForwardedClientCertificateParser certificateParser;
+    private final ChargerCertificateVerifier certificateVerifier;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public OcppHandshakeSecurityInterceptor(
             @Value("${ocpp.handshake.security-mode:${OCPP_HANDSHAKE_SECURITY_MODE:AUDIT}}") String mode,
             @Value("${ocpp.handshake.simulator-password:${OCPP_HANDSHAKE_SIMULATOR_PASSWORD:}}") String simulatorPassword,
@@ -41,7 +50,10 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
             MeterRegistry meterRegistry,
             ChargerCredentialVerifier credentialVerifier,
             OcppHandshakeRateLimiter rateLimiter,
-            @Value("${ocpp.handshake.require-secure-transport:false}") boolean requireSecureTransport
+            @Value("${ocpp.handshake.require-secure-transport:false}") boolean requireSecureTransport,
+            @Value("${ocpp.mtls.mode:${OCPP_MTLS_MODE:DISABLED}}") String mtlsMode,
+            ForwardedClientCertificateParser certificateParser,
+            ChargerCertificateVerifier certificateVerifier
     ) {
         this.mode = SecurityMode.from(mode);
         this.sharedSimulatorPassword = simulatorPassword == null ? "" : simulatorPassword;
@@ -50,6 +62,23 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
         this.credentialVerifier = credentialVerifier;
         this.rateLimiter = rateLimiter;
         this.requireSecureTransport = requireSecureTransport;
+        this.mtlsMode = MtlsMode.from(mtlsMode);
+        this.certificateParser = certificateParser;
+        this.certificateVerifier = certificateVerifier;
+    }
+
+    OcppHandshakeSecurityInterceptor(
+            String mode,
+            String simulatorPassword,
+            String allowedOrigins,
+            MeterRegistry meterRegistry,
+            ChargerCredentialVerifier credentialVerifier,
+            OcppHandshakeRateLimiter rateLimiter,
+            boolean requireSecureTransport
+    ) {
+        this(mode, simulatorPassword, allowedOrigins, meterRegistry, credentialVerifier, rateLimiter,
+                requireSecureTransport, "DISABLED", new ForwardedClientCertificateParser(),
+                (id, certificate, now) -> ChargerCertificateVerifier.Decision.UNREGISTERED);
     }
 
     @Override
@@ -94,13 +123,35 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
             }
         }
 
+        String chargePointId = chargePointId(request.getURI());
+        OcppHandshakeRateLimiter.Decision limitDecision = rateLimiter.allow(
+                chargePointId, request.getRemoteAddress());
+        if (limitDecision == OcppHandshakeRateLimiter.Decision.LIMITED) {
+            if (!violation(response, HttpStatus.TOO_MANY_REQUESTS, "rate_limited")) {
+                return false;
+            }
+        } else if (limitDecision == OcppHandshakeRateLimiter.Decision.UNAVAILABLE) {
+            if (!violation(response, HttpStatus.SERVICE_UNAVAILABLE, "rate_limiter_unavailable")) {
+                return false;
+            }
+        }
+
+        boolean certificateAuthenticated = authenticateCertificate(
+                request, response, chargePointId, protocol, attributes);
+        if (mtlsMode == MtlsMode.ENFORCE && !certificateAuthenticated) {
+            return false;
+        }
+
         Credential credential = parseCredential(request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION));
+        if (certificateAuthenticated && mtlsMode == MtlsMode.ENFORCE) {
+            record("accepted", protocolTag(protocol));
+            return true;
+        }
         if (credential == null) {
             if (!violation(response, HttpStatus.UNAUTHORIZED, "missing_credentials")) {
                 return false;
             }
         } else {
-            String chargePointId = chargePointId(request.getURI());
             if (!MessageDigest.isEqual(
                     chargePointId.getBytes(StandardCharsets.UTF_8),
                     credential.username().getBytes(StandardCharsets.UTF_8))) {
@@ -108,17 +159,6 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
                     return false;
                 }
             } else {
-                OcppHandshakeRateLimiter.Decision limitDecision = rateLimiter.allow(
-                        chargePointId, request.getRemoteAddress());
-                if (limitDecision == OcppHandshakeRateLimiter.Decision.LIMITED) {
-                    if (!violation(response, HttpStatus.TOO_MANY_REQUESTS, "rate_limited")) {
-                        return false;
-                    }
-                } else if (limitDecision == OcppHandshakeRateLimiter.Decision.UNAVAILABLE) {
-                    if (!violation(response, HttpStatus.SERVICE_UNAVAILABLE, "rate_limiter_unavailable")) {
-                        return false;
-                    }
-                }
                 // The transition-only shared fallback must not touch the
                 // credential database. It is accepted only in AUDIT; ENFORCE
                 // always executes charger-scoped verification below.
@@ -136,7 +176,59 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
         }
 
         record("accepted", protocolTag(protocol));
+        attributes.put(AUTHENTICATION_ATTRIBUTE, "basic");
         return true;
+    }
+
+    private boolean authenticateCertificate(
+            ServerHttpRequest request,
+            ServerHttpResponse response,
+            String chargePointId,
+            String protocol,
+            Map<String, Object> attributes
+    ) {
+        if (mtlsMode == MtlsMode.DISABLED) {
+            return false;
+        }
+        String header = request.getHeaders().getFirst("Client-Cert");
+        if (header == null || header.isBlank()) {
+            recordMtls("missing_certificate", protocolTag(protocol));
+            if (mtlsMode == MtlsMode.ENFORCE) {
+                response.setStatusCode(HttpStatus.UNAUTHORIZED);
+            }
+            return false;
+        }
+        X509Certificate certificate;
+        try {
+            certificate = certificateParser.parse(header);
+        } catch (IllegalArgumentException exception) {
+            recordMtls("malformed_certificate", protocolTag(protocol));
+            if (mtlsMode == MtlsMode.ENFORCE) {
+                response.setStatusCode(HttpStatus.UNAUTHORIZED);
+            }
+            return false;
+        }
+        ChargerCertificateVerifier.Decision decision = certificateVerifier.verify(
+                chargePointId, certificate, Instant.now());
+        String outcome = switch (decision) {
+            case VALID -> "accepted";
+            case MALFORMED -> "malformed_certificate";
+            case IDENTITY_MISMATCH -> "identity_mismatch";
+            case UNREGISTERED -> "unregistered_certificate";
+            case INACTIVE -> "inactive_certificate";
+            case NOT_YET_VALID -> "not_yet_valid_certificate";
+            case EXPIRED -> "expired_certificate";
+            case WEAK_KEY -> "weak_key";
+        };
+        recordMtls(outcome, protocolTag(protocol));
+        if (decision == ChargerCertificateVerifier.Decision.VALID) {
+            attributes.put(AUTHENTICATION_ATTRIBUTE, "mtls");
+            return true;
+        }
+        if (mtlsMode == MtlsMode.ENFORCE) {
+            response.setStatusCode(HttpStatus.UNAUTHORIZED);
+        }
+        return false;
     }
 
     @Override
@@ -165,6 +257,11 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
 
     private void record(String outcome, String protocol) {
         meterRegistry.counter("electrahub.ocpp.handshake", "outcome", outcome, "protocol", protocol).increment();
+    }
+
+    private void recordMtls(String outcome, String protocol) {
+        meterRegistry.counter("electrahub.ocpp.mtls.handshake",
+                "outcome", outcome, "protocol", protocol).increment();
     }
 
     private boolean matchesSharedSimulatorPassword(String suppliedPassword) {
@@ -245,6 +342,20 @@ public class OcppHandshakeSecurityInterceptor implements HandshakeInterceptor {
                 return valueOf(value == null ? "AUDIT" : value.trim().toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException exception) {
                 return AUDIT;
+            }
+        }
+    }
+
+    private enum MtlsMode {
+        DISABLED,
+        AUDIT,
+        ENFORCE;
+
+        private static MtlsMode from(String value) {
+            try {
+                return valueOf(value == null ? "DISABLED" : value.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException exception) {
+                return DISABLED;
             }
         }
     }
