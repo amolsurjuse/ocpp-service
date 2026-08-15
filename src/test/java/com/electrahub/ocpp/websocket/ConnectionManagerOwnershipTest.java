@@ -32,9 +32,9 @@ class ConnectionManagerOwnershipTest {
     }
 
     @Test
-    void localSocketIsOwnerOnlyWhenRedisAtomicallyConfirmsItsNodeMarker() {
+    void expiredMarkerIsAtomicallyReclaimedForAnOpenLocalSocket() {
         when(redisTemplate.execute(
-                any(RedisScript.class), anyList(), any(), any())).thenReturn(1L);
+                any(RedisScript.class), anyList(), any(), any(), any())).thenReturn(1L);
 
         assertThat(connectionManager.isLocalConnectionOwner("CP-1")).isTrue();
     }
@@ -42,7 +42,7 @@ class ConnectionManagerOwnershipTest {
     @Test
     void differentRedisOwnerFailsClosed() {
         when(redisTemplate.execute(
-                any(RedisScript.class), anyList(), any(), any())).thenReturn(0L);
+                any(RedisScript.class), anyList(), any(), any(), any())).thenReturn(0L);
         when(valueOperations.get("ocpp:connection:CP-1")).thenReturn("other-node");
 
         assertThat(connectionManager.isLocalConnectionOwner("CP-1")).isFalse();
@@ -53,7 +53,7 @@ class ConnectionManagerOwnershipTest {
     @Test
     void redisFailureFailsClosedWithoutClaimingOwnership() {
         when(redisTemplate.execute(
-                any(RedisScript.class), anyList(), any(), any()))
+                any(RedisScript.class), anyList(), any(), any(), any()))
                 .thenThrow(new DataAccessResourceFailureException("redis unavailable"));
 
         assertThat(connectionManager.isLocalConnectionOwner("CP-1")).isFalse();
@@ -65,6 +65,6 @@ class ConnectionManagerOwnershipTest {
                 .isEqualTo(ConnectionManager.ConnectionOwnership.OFFLINE);
 
         verify(redisTemplate, never()).execute(
-                any(RedisScript.class), anyList(), any(), any());
+                any(RedisScript.class), anyList(), any(), any(), any());
     }
 }
