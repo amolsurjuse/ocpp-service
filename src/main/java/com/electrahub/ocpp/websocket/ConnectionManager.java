@@ -31,10 +31,16 @@ public class ConnectionManager {
                     + "redis.call('del', KEYS[1]); redis.call('del', KEYS[2]); return 1 else return 0 end",
             Long.class
     );
-    private static final DefaultRedisScript<Long> REFRESH_IF_OWNER = new DefaultRedisScript<>(
-            "if redis.call('get', KEYS[1]) == ARGV[1] then "
+    private static final DefaultRedisScript<Long> CLAIM_OR_REFRESH_IF_OWNER = new DefaultRedisScript<>(
+            "local owner = redis.call('get', KEYS[1]); "
+                    + "if not owner then "
+                    + "local claimed = redis.call('set', KEYS[1], ARGV[1], 'EX', ARGV[2], 'NX'); "
+                    + "if claimed then "
+                    + "redis.call('set', KEYS[2], ARGV[3], 'EX', ARGV[2]); return 1; "
+                    + "end; owner = redis.call('get', KEYS[1]); end; "
+                    + "if owner == ARGV[1] then "
                     + "redis.call('expire', KEYS[1], ARGV[2]); "
-                    + "if redis.call('exists', KEYS[2]) == 1 then redis.call('expire', KEYS[2], ARGV[2]); end; "
+                    + "redis.call('set', KEYS[2], ARGV[3], 'EX', ARGV[2]); "
                     + "return 1 else return 0 end",
             Long.class
     );
@@ -175,7 +181,7 @@ public class ConnectionManager {
         WebSocketSession session = localSessions.get(normalizedChargePointId);
         boolean connected = session != null && session.isOpen();
         if (connected) {
-            refreshConnectionMarker(normalizedChargePointId);
+            claimOrRefreshConnectionMarker(normalizedChargePointId);
         }
         if (!connected && session != null) {
             localSessions.remove(normalizedChargePointId, session);
@@ -214,7 +220,7 @@ public class ConnectionManager {
             }
         }
 
-        if (localSocketOpen && refreshConnectionMarker(normalizedChargePointId)) {
+        if (localSocketOpen && claimOrRefreshConnectionMarker(normalizedChargePointId)) {
             return ConnectionOwnership.LOCAL_OWNER;
         }
 
@@ -236,17 +242,18 @@ public class ConnectionManager {
         }
     }
 
-    private boolean refreshConnectionMarker(String normalizedChargePointId) {
+    private boolean claimOrRefreshConnectionMarker(String normalizedChargePointId) {
         try {
             Long refreshed = redisTemplate.execute(
-                    REFRESH_IF_OWNER,
+                    CLAIM_OR_REFRESH_IF_OWNER,
                     List.of(connectionKey(normalizedChargePointId), protocolKey(normalizedChargePointId)),
                     nodeId,
-                    String.valueOf(connectionMarkerTtl.toSeconds())
+                    String.valueOf(connectionMarkerTtl.toSeconds()),
+                    localProtocols.getOrDefault(normalizedChargePointId, "OCPP16J")
             );
             return Long.valueOf(1L).equals(refreshed);
         } catch (DataAccessException ex) {
-            log.warn("Unable to refresh Redis connection marker TTL for charge point {}: {}", normalizedChargePointId, ex.getMessage());
+            log.warn("Unable to claim or refresh Redis connection marker for charge point {}: {}", normalizedChargePointId, ex.getMessage());
             return false;
         }
     }
