@@ -50,6 +50,10 @@ public class RemoteCommandService {
     private final ConcurrentHashMap<String, CompletableFuture<JsonNode>> pendingResponses = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final int responseTimeoutSeconds;
+    private OcppMessageLogService diagnosticJournal;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setDiagnosticJournal(OcppMessageLogService diagnosticJournal) { this.diagnosticJournal = diagnosticJournal; }
 
     /**
      * Executes remote command service for `RemoteCommandService`.
@@ -143,12 +147,24 @@ public class RemoteCommandService {
 
         OcppJsonRpcMessage message = OcppJsonRpcMessage.createCall(messageId, action, payload);
         String messageJson = message.toJson();
+        java.time.Instant sentAt = java.time.Instant.now();
 
         pendingResponses.put(messageId, future);
 
         future.orTimeout(responseTimeoutSeconds, TimeUnit.SECONDS)
-                .whenComplete((ignored, throwable) -> {
+                .whenComplete((response, throwable) -> {
                     pendingResponses.remove(messageId, future);
+                    if (diagnosticJournal != null) {
+                        try {
+                            Throwable cause = unwrap(throwable);
+                            String errorCode = cause instanceof OcppCallErrorException error ? error.errorCode : null;
+                            diagnosticJournal.recordExchange(chargePointId, messageId, "OUTBOUND", action, payload,
+                                    response, errorCode == null ? commandOutcome(throwable) : "CALL_ERROR", errorCode,
+                                    sentAt, throwable == null || errorCode != null ? java.time.Instant.now() : null);
+                        } catch (RuntimeException ex) {
+                            log.warn("OCPP diagnostic journal queue unavailable; command outcome is unchanged");
+                        }
+                    }
                     commandTimer.stop(Timer.builder("electrahub.ocpp.remote_command.duration")
                             .description("Time from an OCPP command send to a terminal response")
                             .publishPercentileHistogram()
@@ -201,7 +217,7 @@ public class RemoteCommandService {
     public void rejectPendingResponse(String messageId, String errorCode, String errorDescription) {
         CompletableFuture<JsonNode> future = pendingResponses.remove(messageId);
         if (future != null) {
-            future.completeExceptionally(new OcppCallErrorException(errorCode + ": " + errorDescription));
+            future.completeExceptionally(new OcppCallErrorException(errorCode, errorDescription));
             log.warn("Rejected pending response: messageId={}, errorCode={}", messageId, errorCode);
         }
     }
@@ -632,8 +648,10 @@ public class RemoteCommandService {
     }
 
     private static final class OcppCallErrorException extends RuntimeException {
-        private OcppCallErrorException(String message) {
-            super(message);
+        private final String errorCode;
+        private OcppCallErrorException(String errorCode, String description) {
+            super(errorCode + ": " + description);
+            this.errorCode = errorCode != null && errorCode.matches("[A-Za-z0-9_.:-]{1,80}") ? errorCode : "unavailable";
         }
     }
 

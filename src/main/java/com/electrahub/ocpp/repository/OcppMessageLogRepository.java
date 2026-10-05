@@ -11,6 +11,8 @@ import java.util.UUID;
 
 @Repository
 public interface OcppMessageLogRepository extends JpaRepository<OcppMessageLog, UUID> {
+    Page<OcppMessageLog> findByChargePointIdAndCreatedAtBetween(
+            String chargePointId, java.time.Instant from, java.time.Instant to, Pageable pageable);
 
     /**
      * Retrieves find by charge point id order by created at desc for `OcppMessageLogRepository`.

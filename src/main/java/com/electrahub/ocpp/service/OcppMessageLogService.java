@@ -32,6 +32,35 @@ public class OcppMessageLogService {
         this.messageLogRepository = messageLogRepository;
     }
 
+    /** One completed exchange per row avoids races between asynchronous insert and response updates. */
+    @Async
+    public void recordExchange(String charger, String messageId, String direction, String action,
+            com.fasterxml.jackson.databind.JsonNode request, com.fasterxml.jackson.databind.JsonNode response,
+            String outcome, String errorCode, Instant receivedAt, Instant respondedAt) {
+        try {
+            messageLogRepository.save(OcppMessageLog.builder().chargePointId(charger).messageId(messageId)
+                    .direction(direction).action(action).payload(diagnosticPayload(request))
+                    .responsePayload(diagnosticPayload(response)).status(outcome).errorCode(errorCode)
+                    .createdAt(receivedAt).respondedAt(respondedAt).build());
+        } catch (RuntimeException ex) {
+            log.warn("OCPP diagnostic exchange could not be persisted; evidence may be incomplete errorType={}", ex.getClass().getSimpleName());
+        }
+    }
+
+    static String diagnosticPayload(com.fasterxml.jackson.databind.JsonNode source) {
+        var target = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
+        if (source != null && source.isObject()) {
+            for (String key : java.util.List.of("transactionId", "connectorId", "status", "timestamp", "eventType", "seqNo")) {
+                var field = source.path(key);
+                if (field.isNumber() || field.isBoolean() || (field.isTextual() && field.asText().length() <= 128)) target.set(key, field);
+            }
+            var transaction = source.path("transactionInfo").path("transactionId");
+            if ((transaction.isTextual() && transaction.asText().length() <= 128) || transaction.isIntegralNumber())
+                target.putObject("transactionInfo").set("transactionId", transaction);
+        }
+        return target.toString();
+    }
+
     /**
      * Executes log message for `OcppMessageLogService`.
      *

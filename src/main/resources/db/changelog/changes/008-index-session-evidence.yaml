@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: index-ocpp-session-evidence
+      author: electrahub
+      runInTransaction: false
+      changes:
+        - sql:
+            dbms: postgresql
+            splitStatements: false
+            sql: CREATE INDEX CONCURRENTLY idx_ocpp_log_charger_time_id ON ocpp_message_log (charge_point_id, created_at, id)
+      rollback:
+        - sql:
+            dbms: postgresql
+            splitStatements: false
+            sql: DROP INDEX CONCURRENTLY idx_ocpp_log_charger_time_id

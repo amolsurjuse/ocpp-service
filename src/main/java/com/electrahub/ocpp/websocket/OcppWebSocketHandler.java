@@ -128,13 +128,17 @@ public class OcppWebSocketHandler extends TextWebSocketHandler implements SubPro
                 return;
             }
 
+            Instant receivedAt = Instant.now();
             boolean accepted = inboundCallDispatcher.dispatch(
                     chargePointId,
-                    () -> processInboundCall(chargePointId, session, ocppMessage),
-                    () -> sendCallError(session, ocppMessage.getMessageId(), "InternalError",
-                            "CSMS callback processing is unavailable")
+                    () -> processInboundCall(chargePointId, session, ocppMessage, receivedAt),
+                    () -> {
+                        recordExchange(chargePointId, ocppMessage, null, "QUEUE_REJECTED", receivedAt);
+                        sendCallError(session, ocppMessage.getMessageId(), "InternalError", "CSMS callback processing is unavailable");
+                    }
             );
             if (!accepted) {
+                recordExchange(chargePointId, ocppMessage, null, "QUEUE_REJECTED", receivedAt);
                 sendCallError(session, ocppMessage.getMessageId(), "InternalError",
                         "CSMS callback queue is full");
             }
@@ -147,7 +151,8 @@ public class OcppWebSocketHandler extends TextWebSocketHandler implements SubPro
     private void processInboundCall(
             String chargePointId,
             WebSocketSession session,
-            OcppJsonRpcMessage ocppMessage
+            OcppJsonRpcMessage ocppMessage,
+            Instant receivedAt
     ) {
         try {
             // HeartbeatHandler owns the bounded durable liveness write. Running
@@ -161,12 +166,25 @@ public class OcppWebSocketHandler extends TextWebSocketHandler implements SubPro
             if (response != null) {
                 String responseJson = response.toJson();
                 connectionManager.sendMessage(session, responseJson);
+                recordExchange(chargePointId, ocppMessage, response, "RESPONDED", receivedAt);
                 log.debug("Sent OCPP response to {}: bytes={}", chargePointId, responseJson.length());
             }
         } catch (Exception e) {
+            recordExchange(chargePointId, ocppMessage, null, "PROCESSING_FAILED", receivedAt);
             log.error("Error processing inbound {} callback from {}: {}",
                     ocppMessage.getAction(), chargePointId, e.getMessage(), e);
             sendCallError(session, ocppMessage.getMessageId(), "InternalError", "Failed to process message");
+        }
+    }
+
+    private void recordExchange(String charger, OcppJsonRpcMessage request, OcppJsonRpcMessage response,
+            String outcome, Instant receivedAt) {
+        try {
+            messageLogService.recordExchange(charger, request.getMessageId(), "INBOUND", request.getAction(),
+                    request.getPayload(), response == null ? null : response.getPayload(), outcome,
+                    response == null ? null : response.getErrorCode(), receivedAt, response == null ? null : Instant.now());
+        } catch (RuntimeException ex) {
+            log.warn("OCPP diagnostic journal queue unavailable; charger processing continues");
         }
     }
 

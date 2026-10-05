@@ -9,6 +9,15 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class InternalServiceTokenFilterTest {
+    @Test
+    void sessionEvidenceRejectsMissingInternalCredential() throws Exception {
+        var filter = new InternalServiceTokenFilter("internal-test-token");
+        var response = new MockHttpServletResponse();
+        var chain = new MockFilterChain();
+        filter.doFilter(new MockHttpServletRequest("GET", "/api/v1/ocpp/internal/session-evidence"), response, chain);
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(chain.getRequest()).isNull();
+    }
 
     private static final String STATUS_PATH = "/api/v1/ocpp/commands/remote-start/status";
 
